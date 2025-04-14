@@ -159,7 +159,7 @@ export class PostHog {
         this.browserSettings = browserSettings
         this.chatSettings = chatSettings
         this.inkeepHandler = new PostHogApiProvider(
-            'inkeep-qa',
+            'inkeep-qa-expert',
             apiConfiguration.posthogHost,
             apiConfiguration.posthogApiKey
         )
@@ -1292,16 +1292,37 @@ export class PostHog {
                 },
             ]
 
-            let response = ''
-            const stream = await this.inkeepHandler.stream('', messages)
+            const stream = this.inkeepHandler.stream('something', messages)
 
+            let assistantMessage = ''
+            this.isStreaming = true
+            this.currentStreamingContentIndex = 0
+            this.assistantMessageContent = []
+            this.didCompleteReadingStream = false
+            this.userMessageContent = []
+            this.userMessageContentReady = false
+            this.didRejectTool = false
+            this.didAlreadyUseTool = false
+            this.presentAssistantMessageLocked = false
+            this.presentAssistantMessageHasPendingUpdates = false
+            this.didAutomaticallyRetryFailedApiRequest = false
             for await (const chunk of stream) {
                 if (chunk.type === 'text') {
-                    response += chunk.text
+                    assistantMessage += chunk.text
+                    // parse raw assistant message into content blocks
+                    const prevLength = this.assistantMessageContent.length
+                    this.assistantMessageContent = parseAssistantMessage(assistantMessage)
+                    if (this.assistantMessageContent.length > prevLength) {
+                        this.userMessageContentReady = false // new content we need to present, reset to false in case previous content set this to true
+                    }
+                    // present content to user
+                    this.presentAssistantMessage()
                 }
             }
+            this.isStreaming = false
+            this.didCompleteReadingStream = true
 
-            return formatResponse.toolResult(response || 'No documentation found for this query.')
+            return formatResponse.toolResult(assistantMessage || 'No documentation found for this query.')
         } catch (error) {
             this.consecutiveMistakeCount++
             return formatResponse.toolError(`Error searching documentation: ${(error as Error).message}`)
@@ -2346,17 +2367,10 @@ export class PostHog {
 
                                 this.consecutiveMistakeCount = 0
 
-                                const results = await this.searchDocsTool({ query })
-
-                                const completeMessage = JSON.stringify({
-                                    tool: 'searchDocs',
-                                    query,
-                                    content: typeof results === 'string' ? results : JSON.stringify(results),
-                                })
-
+                                let results: ToolResponse | null = null
                                 if (this.shouldAutoApproveTool(block.name)) {
                                     this.removeLastPartialMessageIfExistsWithType('ask', 'tool')
-                                    await this.say('tool', completeMessage, undefined, false)
+                                    results = await this.searchDocsTool({ query })
                                     this.consecutiveAutoApprovedRequestsCount++
                                     telemetryService.captureToolUsage(this.taskId, block.name, true, true)
                                 } else {
@@ -2364,15 +2378,20 @@ export class PostHog {
                                         `Max wants to search documentation for "${query}"`
                                     )
                                     this.removeLastPartialMessageIfExistsWithType('say', 'tool')
-                                    const didApprove = await askApproval('tool', completeMessage)
+                                    const didApprove = await askApproval('tool', query)
                                     if (!didApprove) {
                                         telemetryService.captureToolUsage(this.taskId, block.name, false, false)
                                         break
                                     }
+                                    results = await this.searchDocsTool({ query })
                                     telemetryService.captureToolUsage(this.taskId, block.name, false, true)
                                 }
 
-                                pushToolResult(results)
+                                if (results) {
+                                    pushToolResult(results)
+                                } else {
+                                    pushToolResult('No documentation found for this query.')
+                                }
                                 break
                             }
                         } catch (error) {
