@@ -54,7 +54,7 @@ import { parseMentions } from './mentions'
 import { formatResponse } from './prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT } from './prompts/system'
 import { ContextManager } from './context-management/ContextManager'
-import { ApiStream } from '../api/utils/stream'
+import { ApiStream, ApiStreamChunk } from '../api/utils/stream'
 import { DEFAULT_LANGUAGE_SETTINGS, getLanguageKey, LanguageDisplay, LanguageKey } from '../shared/Languages'
 import { telemetryService } from '../services/telemetry/TelemetryService'
 import pTimeout from 'p-timeout'
@@ -159,7 +159,7 @@ export class PostHog {
         this.browserSettings = browserSettings
         this.chatSettings = chatSettings
         this.inkeepHandler = new PostHogApiProvider(
-            'inkeep-qa',
+            'inkeep-qa-expert',
             apiConfiguration.posthogHost,
             apiConfiguration.posthogApiKey
         )
@@ -1273,6 +1273,199 @@ export class PostHog {
         }
     }
 
+    async streamMessage(stream: AsyncIterable<ApiStreamChunk>): Promise<string> {
+        // since we sent off a placeholder api_req_started message to update the webview while waiting to actually start the API request (to load potential details for example), we need to update the text of that message
+        const lastApiReqIndex = findLastIndex(this.posthogMessages, (m) => m.say === 'api_req_started')
+        await this.savePostHogMessages()
+        await this.providerRef.deref()?.postStateToWebview()
+
+        try {
+            let cacheWriteTokens = 0
+            let cacheReadTokens = 0
+            let inputTokens = 0
+            let outputTokens = 0
+
+            // update api_req_started. we can't use api_req_finished anymore since it's a unique case where it could come after a streaming message (ie in the middle of being updated or executed)
+            // fortunately api_req_finished was always parsed out for the gui anyways, so it remains solely for legacy purposes to keep track of prices in tasks from history
+            // (it's worth removing a few months from now)
+            const updateApiReqMsg = (cancelReason?: PostHogApiReqCancelReason, streamingFailedMessage?: string) => {
+                this.posthogMessages[lastApiReqIndex].text = JSON.stringify({
+                    ...JSON.parse(this.posthogMessages[lastApiReqIndex].text || '{}'),
+                    tokensIn: inputTokens,
+                    tokensOut: outputTokens,
+                    cacheWrites: cacheWriteTokens,
+                    cacheReads: cacheReadTokens,
+                    success: !cancelReason && !streamingFailedMessage,
+                    cancelReason,
+                    streamingFailedMessage,
+                } satisfies PostHogApiReqInfo)
+            }
+
+            const abortStream = async (cancelReason: PostHogApiReqCancelReason, streamingFailedMessage?: string) => {
+                if (this.diffViewProvider.isEditing) {
+                    await this.diffViewProvider.revertChanges() // closes diff view
+                }
+
+                // if last message is a partial we need to update and save it
+                const lastMessage = this.posthogMessages.at(-1)
+                if (lastMessage && lastMessage.partial) {
+                    // lastMessage.ts = Date.now() DO NOT update ts since it is used as a key for virtuoso list
+                    lastMessage.partial = false
+                    // instead of streaming partialMessage events, we do a save and post like normal to persist to disk
+                    console.log('updating partial message', lastMessage)
+                    // await this.savePostHogMessages()
+                }
+
+                // Let assistant know their response was interrupted for when task is resumed
+                await this.addToApiConversationHistory({
+                    role: 'assistant',
+                    content: [
+                        {
+                            type: 'text',
+                            text:
+                                assistantMessage +
+                                `\n\n[${
+                                    cancelReason === 'streaming_failed'
+                                        ? 'Response interrupted by API Error'
+                                        : 'Response interrupted by user'
+                                }]`,
+                        },
+                    ],
+                })
+
+                // update api_req_started to have cancelled
+                updateApiReqMsg(cancelReason, streamingFailedMessage)
+                await this.savePostHogMessages()
+
+                telemetryService.captureConversationTurnEvent(
+                    this.taskId,
+                    this.apiProvider,
+                    this.api.getModel().id,
+                    'assistant'
+                )
+
+                // signals to provider that it can retrieve the saved messages from disk, as abortTask can not be awaited on in nature
+                this.didFinishAbortingStream = true
+            }
+
+            // reset streaming state
+            this.currentStreamingContentIndex = 0
+            this.assistantMessageContent = []
+            this.didCompleteReadingStream = false
+            this.userMessageContent = []
+            this.userMessageContentReady = false
+            this.didRejectTool = false
+            this.didAlreadyUseTool = false
+            this.presentAssistantMessageLocked = false
+            this.presentAssistantMessageHasPendingUpdates = false
+            this.didAutomaticallyRetryFailedApiRequest = false
+            await this.diffViewProvider.reset()
+
+            let assistantMessage = ''
+            let reasoningMessage = ''
+            this.isStreaming = true
+            try {
+                for await (const chunk of stream) {
+                    if (!chunk) {
+                        continue
+                    }
+                    switch (chunk.type) {
+                        case 'usage':
+                            inputTokens += chunk.inputTokens
+                            outputTokens += chunk.outputTokens
+                            cacheWriteTokens += chunk.cacheWriteTokens ?? 0
+                            cacheReadTokens += chunk.cacheReadTokens ?? 0
+                            break
+                        case 'reasoning':
+                            // reasoning will always come before assistant message
+                            reasoningMessage += chunk.reasoning
+                            await this.say('reasoning', reasoningMessage, undefined, true)
+                            break
+                        case 'text':
+                            if (reasoningMessage && assistantMessage.length === 0) {
+                                // complete reasoning message
+                                await this.say('reasoning', reasoningMessage, undefined, false)
+                            }
+                            assistantMessage += chunk.text
+                            // parse raw assistant message into content blocks
+                            const prevLength = this.assistantMessageContent.length
+                            this.assistantMessageContent = parseAssistantMessage(assistantMessage)
+                            if (this.assistantMessageContent.length > prevLength) {
+                                this.userMessageContentReady = false // new content we need to present, reset to false in case previous content set this to true
+                            }
+                            // present content to user
+                            this.presentAssistantMessage()
+                            break
+                    }
+
+                    if (this.abort) {
+                        console.log('aborting stream...')
+                        if (!this.abandoned) {
+                            // only need to gracefully abort if this instance isn't abandoned (sometimes openrouter stream hangs, in which case this would affect future instances of posthog)
+                            await abortStream('user_cancelled')
+                        }
+                        break // aborts the stream
+                    }
+
+                    if (this.didRejectTool) {
+                        // userContent has a tool rejection, so interrupt the assistant's response to present the user's feedback
+                        assistantMessage += '\n\n[Response interrupted by user feedback]'
+                        // this.userMessageContentReady = true // instead of setting this premptively, we allow the present iterator to finish and set userMessageContentReady when its ready
+                        break
+                    }
+
+                    // PREV: we need to let the request finish for openrouter to get generation details
+                    if (this.didAlreadyUseTool) {
+                        assistantMessage +=
+                            '\n\n[Response interrupted by a tool use result. Only one tool may be used at a time and should be placed at the end of the message.]'
+                        break
+                    }
+                }
+            } catch (error) {
+                // abandoned happens when extension is no longer waiting for the posthog instance to finish aborting (error is thrown here when any function in the for loop throws due to this.abort)
+                if (!this.abandoned) {
+                    this.abortTask() // if the stream failed, there's various states the task could be in (i.e. could have streamed some tools the user may have executed), so we just resort to replicating a cancel task
+                    const errorMessage = this.formatErrorWithStatusCode(error)
+
+                    await abortStream('streaming_failed', errorMessage)
+                    const history = await this.providerRef.deref()?.getTaskWithId(this.taskId)
+                    if (history) {
+                        await this.providerRef.deref()?.initPostHogWithHistoryItem(history.historyItem)
+                        // await this.providerRef.deref()?.postStateToWebview()
+                    }
+                }
+            } finally {
+                this.isStreaming = false
+            }
+
+            // need to call here in case the stream was aborted
+            if (this.abort) {
+                throw new Error('PostHog instance aborted')
+            }
+
+            this.didCompleteReadingStream = true
+
+            // set any blocks to be complete to allow presentAssistantMessage to finish and set userMessageContentReady to true
+            // (could be a text block that had no subsequent tool uses, or a text block at the very end, or an invalid tool use, etc. whatever the case, presentAssistantMessage relies on these blocks either to be completed or the user to reject a block in order to proceed and eventually set userMessageContentReady to true)
+            const partialBlocks = this.assistantMessageContent.filter((block) => block.partial)
+            partialBlocks.forEach((block) => {
+                block.partial = false
+            })
+            // this.assistantMessageContent.forEach((e) => (e.partial = false)) // cant just do this bc a tool could be in the middle of executing ()
+            if (partialBlocks.length > 0) {
+                this.presentAssistantMessage() // if there is content to update then it will complete and update this.userMessageContentReady to true, which we pwaitfor before making the next request. all this is really doing is presenting the last partial message that we just set to complete
+            }
+
+            updateApiReqMsg()
+            await this.savePostHogMessages()
+            await this.providerRef.deref()?.postStateToWebview()
+
+            return assistantMessage
+        } catch (error) {
+            throw error
+        }
+    }
+
     async searchDocsTool(args: Record<string, any>): Promise<ToolResponse> {
         if (!this.inkeepHandler) {
             this.consecutiveMistakeCount++
@@ -1292,16 +1485,15 @@ export class PostHog {
                 },
             ]
 
-            let response = ''
-            const stream = await this.inkeepHandler.stream('', messages)
+            const stream = this.inkeepHandler.stream('', messages)
+            try {
+                const result = await this.streamMessage(stream)
 
-            for await (const chunk of stream) {
-                if (chunk.type === 'text') {
-                    response += chunk.text
-                }
+                return formatResponse.toolResult(result || 'No documentation found for this query.')
+            } catch (error) {
+                this.consecutiveMistakeCount++
+                return formatResponse.toolError(`Error searching documentation: ${(error as Error).message}`)
             }
-
-            return formatResponse.toolResult(response || 'No documentation found for this query.')
         } catch (error) {
             this.consecutiveMistakeCount++
             return formatResponse.toolError(`Error searching documentation: ${(error as Error).message}`)
@@ -2346,17 +2538,10 @@ export class PostHog {
 
                                 this.consecutiveMistakeCount = 0
 
-                                const results = await this.searchDocsTool({ query })
-
-                                const completeMessage = JSON.stringify({
-                                    tool: 'searchDocs',
-                                    query,
-                                    content: typeof results === 'string' ? results : JSON.stringify(results),
-                                })
-
+                                let results: ToolResponse | null = null
                                 if (this.shouldAutoApproveTool(block.name)) {
                                     this.removeLastPartialMessageIfExistsWithType('ask', 'tool')
-                                    await this.say('tool', completeMessage, undefined, false)
+                                    results = await this.searchDocsTool({ query })
                                     this.consecutiveAutoApprovedRequestsCount++
                                     telemetryService.captureToolUsage(this.taskId, block.name, true, true)
                                 } else {
@@ -2364,15 +2549,20 @@ export class PostHog {
                                         `Max wants to search documentation for "${query}"`
                                     )
                                     this.removeLastPartialMessageIfExistsWithType('say', 'tool')
-                                    const didApprove = await askApproval('tool', completeMessage)
+                                    const didApprove = await askApproval('tool', query)
                                     if (!didApprove) {
                                         telemetryService.captureToolUsage(this.taskId, block.name, false, false)
                                         break
                                     }
+                                    results = await this.searchDocsTool({ query })
                                     telemetryService.captureToolUsage(this.taskId, block.name, false, true)
                                 }
 
-                                pushToolResult(results)
+                                if (results) {
+                                    pushToolResult(results)
+                                } else {
+                                    pushToolResult('No documentation found for this query.')
+                                }
                                 break
                             }
                         } catch (error) {
@@ -3459,119 +3649,9 @@ export class PostHog {
                 // signals to provider that it can retrieve the saved messages from disk, as abortTask can not be awaited on in nature
                 this.didFinishAbortingStream = true
             }
-
-            // reset streaming state
-            this.currentStreamingContentIndex = 0
-            this.assistantMessageContent = []
-            this.didCompleteReadingStream = false
-            this.userMessageContent = []
-            this.userMessageContentReady = false
-            this.didRejectTool = false
-            this.didAlreadyUseTool = false
-            this.presentAssistantMessageLocked = false
-            this.presentAssistantMessageHasPendingUpdates = false
-            this.didAutomaticallyRetryFailedApiRequest = false
-            await this.diffViewProvider.reset()
-
             const stream = this.attemptApiRequest(previousApiReqIndex) // yields only if the first chunk is successful, otherwise will allow the user to retry the request (most likely due to rate limit error, which gets thrown on the first chunk)
-            let assistantMessage = ''
-            let reasoningMessage = ''
-            this.isStreaming = true
-            try {
-                for await (const chunk of stream) {
-                    if (!chunk) {
-                        continue
-                    }
-                    switch (chunk.type) {
-                        case 'usage':
-                            inputTokens += chunk.inputTokens
-                            outputTokens += chunk.outputTokens
-                            cacheWriteTokens += chunk.cacheWriteTokens ?? 0
-                            cacheReadTokens += chunk.cacheReadTokens ?? 0
-                            break
-                        case 'reasoning':
-                            // reasoning will always come before assistant message
-                            reasoningMessage += chunk.reasoning
-                            await this.say('reasoning', reasoningMessage, undefined, true)
-                            break
-                        case 'text':
-                            if (reasoningMessage && assistantMessage.length === 0) {
-                                // complete reasoning message
-                                await this.say('reasoning', reasoningMessage, undefined, false)
-                            }
-                            assistantMessage += chunk.text
-                            // parse raw assistant message into content blocks
-                            const prevLength = this.assistantMessageContent.length
-                            this.assistantMessageContent = parseAssistantMessage(assistantMessage)
-                            if (this.assistantMessageContent.length > prevLength) {
-                                this.userMessageContentReady = false // new content we need to present, reset to false in case previous content set this to true
-                            }
-                            // present content to user
-                            this.presentAssistantMessage()
-                            break
-                    }
 
-                    if (this.abort) {
-                        console.log('aborting stream...')
-                        if (!this.abandoned) {
-                            // only need to gracefully abort if this instance isn't abandoned (sometimes openrouter stream hangs, in which case this would affect future instances of posthog)
-                            await abortStream('user_cancelled')
-                        }
-                        break // aborts the stream
-                    }
-
-                    if (this.didRejectTool) {
-                        // userContent has a tool rejection, so interrupt the assistant's response to present the user's feedback
-                        assistantMessage += '\n\n[Response interrupted by user feedback]'
-                        // this.userMessageContentReady = true // instead of setting this premptively, we allow the present iterator to finish and set userMessageContentReady when its ready
-                        break
-                    }
-
-                    // PREV: we need to let the request finish for openrouter to get generation details
-                    if (this.didAlreadyUseTool) {
-                        assistantMessage +=
-                            '\n\n[Response interrupted by a tool use result. Only one tool may be used at a time and should be placed at the end of the message.]'
-                        break
-                    }
-                }
-            } catch (error) {
-                // abandoned happens when extension is no longer waiting for the posthog instance to finish aborting (error is thrown here when any function in the for loop throws due to this.abort)
-                if (!this.abandoned) {
-                    this.abortTask() // if the stream failed, there's various states the task could be in (i.e. could have streamed some tools the user may have executed), so we just resort to replicating a cancel task
-                    const errorMessage = this.formatErrorWithStatusCode(error)
-
-                    await abortStream('streaming_failed', errorMessage)
-                    const history = await this.providerRef.deref()?.getTaskWithId(this.taskId)
-                    if (history) {
-                        await this.providerRef.deref()?.initPostHogWithHistoryItem(history.historyItem)
-                        // await this.providerRef.deref()?.postStateToWebview()
-                    }
-                }
-            } finally {
-                this.isStreaming = false
-            }
-
-            // need to call here in case the stream was aborted
-            if (this.abort) {
-                throw new Error('PostHog instance aborted')
-            }
-
-            this.didCompleteReadingStream = true
-
-            // set any blocks to be complete to allow presentAssistantMessage to finish and set userMessageContentReady to true
-            // (could be a text block that had no subsequent tool uses, or a text block at the very end, or an invalid tool use, etc. whatever the case, presentAssistantMessage relies on these blocks either to be completed or the user to reject a block in order to proceed and eventually set userMessageContentReady to true)
-            const partialBlocks = this.assistantMessageContent.filter((block) => block.partial)
-            partialBlocks.forEach((block) => {
-                block.partial = false
-            })
-            // this.assistantMessageContent.forEach((e) => (e.partial = false)) // cant just do this bc a tool could be in the middle of executing ()
-            if (partialBlocks.length > 0) {
-                this.presentAssistantMessage() // if there is content to update then it will complete and update this.userMessageContentReady to true, which we pwaitfor before making the next request. all this is really doing is presenting the last partial message that we just set to complete
-            }
-
-            updateApiReqMsg()
-            await this.savePostHogMessages()
-            await this.providerRef.deref()?.postStateToWebview()
+            const assistantMessage = await this.streamMessage(stream)
 
             // now add to apiconversationhistory
             // need to save assistant responses to file before proceeding to tool use since user can exit at any moment and we wouldn't be able to save the assistant's response
