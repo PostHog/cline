@@ -1292,7 +1292,7 @@ export class PostHog {
                 },
             ]
 
-            const stream = this.inkeepHandler.stream('something', messages)
+            const stream = this.inkeepHandler.stream('', messages)
 
             let assistantMessage = ''
             this.isStreaming = true
