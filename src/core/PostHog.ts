@@ -2725,6 +2725,7 @@ export class PostHog {
 
                             this.removeLastPartialMessageIfExistsWithType('ask', 'tool') // in case the user changes auto-approval settings mid stream
                             const result = await this.createAndQueryInsightTool(insight_type, queryDescription)
+                            telemetryService.captureToolUsage(this.taskId, block.name, true, true)
 
                             pushToolResult(result)
                             break
