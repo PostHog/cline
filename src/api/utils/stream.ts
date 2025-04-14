@@ -103,6 +103,10 @@ function parseDataLine(line: string): any {
 }
 
 function parseSseLine(line: string): { done: boolean; data: any } {
+    if (line.startsWith('event: ') && line.includes('data:')) {
+        // The event data comes from the Max Tools API, we ignore it for now
+        line = 'data:' + line.split('data:')[1]
+    }
     if (line.startsWith('data: [DONE]')) {
         return { done: true, data: undefined }
     }

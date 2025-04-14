@@ -67,6 +67,7 @@ import { LOCK_TEXT_SYMBOL, PostHogIgnoreController } from './ignore/PostHogIgnor
 import { PostHogProvider } from './webview/PostHogProvider'
 import { PostHogApiProvider } from '../api/provider'
 import { ADD_CAPTURE_CALLS_PROMPT } from './prompts/tools/add-capture-calls'
+import { MaxToolsProvider } from '../api/max_tools'
 
 const cwd =
     vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), 'Desktop') // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
@@ -78,6 +79,7 @@ export class PostHog {
     readonly taskId: string
     readonly apiProvider?: string
     readonly completionApiProvider?: string
+    maxToolsProvider: MaxToolsProvider
     api: PostHogApiProvider
     private terminalManager: TerminalManager
     private urlContentFetcher: UrlContentFetcher
@@ -146,6 +148,11 @@ export class PostHog {
             apiConfiguration.apiModelId ?? anthropicDefaultModelId,
             apiConfiguration.posthogHost,
             apiConfiguration.posthogApiKey
+        )
+        this.maxToolsProvider = new MaxToolsProvider(
+            apiConfiguration.posthogHost,
+            apiConfiguration.posthogApiKey,
+            apiConfiguration.posthogProjectId
         )
         this.terminalManager = new TerminalManager()
         this.urlContentFetcher = new UrlContentFetcher(provider.context)
@@ -1310,6 +1317,8 @@ export class PostHog {
             case 'access_mcp_resource':
             case 'use_mcp_tool':
                 return this.autoApprovalSettings.actions.useMcp
+            case 'createInsight':
+                return true
         }
         return false
     }
@@ -1601,6 +1610,8 @@ export class PostHog {
                             } catch (error) {
                                 return `[${block.name}]`
                             }
+                        case 'create_and_query_insight':
+                            return `[${block.name} for '${block.params.insight_type}' and '${block.params.query}']`
                     }
                 }
 
@@ -2684,6 +2695,45 @@ export class PostHog {
                             break
                         }
                     }
+                    case 'create_and_query_insight': {
+                        const insight_type: string | undefined = block.params.insight_type
+                        const queryDescription: string | undefined = block.params.query_description
+                        try {
+                            if (block.partial) {
+                                //noop
+                                break
+                            }
+
+                            if (!insight_type) {
+                                this.consecutiveMistakeCount++
+                                pushToolResult(
+                                    await this.sayAndCreateMissingParamError('create_and_query_insight', 'insight_type')
+                                )
+                                break
+                            }
+
+                            if (!queryDescription) {
+                                this.consecutiveMistakeCount++
+                                pushToolResult(
+                                    await this.sayAndCreateMissingParamError(
+                                        'create_and_query_insight',
+                                        'query_description'
+                                    )
+                                )
+                                break
+                            }
+
+                            this.removeLastPartialMessageIfExistsWithType('ask', 'tool') // in case the user changes auto-approval settings mid stream
+                            const result = await this.createAndQueryInsightTool(insight_type, queryDescription)
+
+                            pushToolResult(result)
+                            break
+                        } catch (error) {
+                            await handleError('creating and querying insight', error)
+                            break
+                        }
+                    }
+
                     case 'use_mcp_tool': {
                         const server_name: string | undefined = block.params.server_name
                         const tool_name: string | undefined = block.params.tool_name
@@ -3885,5 +3935,21 @@ export class PostHog {
         const result = JSON.stringify(results)
 
         return result
+    }
+
+    async createAndQueryInsightTool(insight_type: string, query: string): Promise<ToolResponse> {
+        const result = await this.maxToolsProvider.callTool('insights', {
+            query_type: insight_type,
+            query_description: query,
+        })
+        await this.say(
+            'tool',
+            JSON.stringify({
+                tool: 'createInsight',
+                url: result.visualization,
+            } satisfies PostHogSayTool)
+        )
+
+        return JSON.stringify(result.content)
     }
 }

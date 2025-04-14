@@ -547,6 +547,22 @@ export const ChatRowContent = ({
                         />
                     </>
                 )
+            case 'createInsight':
+                return (
+                    <>
+                        <div style={headerStyle}>
+                            {toolIcon('graph-line')}
+                            <span style={{ fontWeight: 'bold' }}>
+                                {message.type == 'ask' ? 'Max wants to create an insight' : 'Max created an insight:'}
+                            </span>
+                        </div>
+                        <div>
+                            <a href={tool.url} target="_blank" rel="noopener noreferrer">
+                                {tool.url}
+                            </a>
+                        </div>
+                    </>
+                )
             default:
                 return null
         }
@@ -724,7 +740,11 @@ export const ChatRowContent = ({
         case 'say':
             switch (message.say) {
                 case 'api_req_started':
-                    return null
+                    return (
+                        <div style={{ ...headerStyle, marginBottom: 0 }}>
+                            {icon} {title}
+                        </div>
+                    )
                 case 'api_req_finished':
                     return null // we should never see this message type
                 case 'mcp_server_response':
