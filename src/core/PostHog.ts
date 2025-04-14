@@ -1334,7 +1334,7 @@ export class PostHog {
             case 'access_mcp_resource':
             case 'use_mcp_tool':
                 return this.autoApprovalSettings.actions.useMcp
-            case 'createInsight':
+            case 'create_and_query_insight':
                 return true
         }
         return false
