@@ -28,9 +28,6 @@ export abstract class PostHogTool<TInput, TOutput> extends BaseTool<TInput, TOut
             .catch((error) => {
                 if (axios.isAxiosError(error)) {
                     const axiosError = error as AxiosError
-                    const config = this.config
-
-                    console.log(this.config)
 
                     const errorContext = {
                         endpoint,

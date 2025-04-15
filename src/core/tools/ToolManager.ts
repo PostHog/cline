@@ -17,13 +17,13 @@ type ToolName = keyof ToolMapping
 type ToolMap = ReadonlyMap<ToolName, BaseTool<any, any> | undefined>
 
 export class ToolManager {
-    public tools: ToolMap
+    private tools: ToolMap
     private config: ToolManagerConfig
 
     constructor(config: ToolManagerConfig) {
         this.config = config
 
-        //@ts-ignore
+        //@ts-ignore we interface this via getTool, so we can ignore the type error
         this.tools = new Map([
             [
                 'create_feature_flag',

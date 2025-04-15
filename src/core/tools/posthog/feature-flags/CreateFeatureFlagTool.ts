@@ -8,6 +8,7 @@ export const CreateFeatureFlagToolInputSchema = z.object({
     body: z.object({
         key: z.string(),
         name: z.string(),
+        active: z.boolean(),
     }),
 })
 
@@ -58,6 +59,7 @@ Usage:
                 {
                     key: input.body.key,
                     name: input.body.name,
+                    active: input.body.active,
                     filters: {
                         groups: [
                             {
@@ -70,7 +72,6 @@ Usage:
                         payloads: {},
                     },
                     deleted: false,
-                    active: true,
                     is_simple_flag: false,
                     rollout_percentage: null,
                     ensure_experience_continuity: false,

@@ -4,29 +4,18 @@ import type { ToolOutput } from '../../base/types'
 import type { ToolUse } from '../../../assistant-message'
 import { BasePostHogToolConfigSchema } from '../schema'
 
-// Define the input/output schemas
 export const ListFeatureFlagsToolInputSchema = z.object({
     query: z
         .object({
-            active: z.enum(['true', 'false']).optional().describe('Filter feature flags by their active status'),
-            created_by_id: z
-                .string()
-                .optional()
-                .describe('Filter by the User ID which initially created the feature flag'),
-            limit: z.number().int().positive().optional().describe('Number of results to return per page'),
-            offset: z.number().int().min(0).optional().describe('The initial index from which to return the results'),
-            search: z.string().optional().describe('Search by feature flag key or name (case insensitive)'),
-            type: z.enum(['boolean', 'experiment', 'multivariant']).optional().describe('Filter by feature flag type'),
+            active: z.boolean().optional(),
+            search: z.string().optional(),
         })
-        .optional()
-        .describe('Query parameters for the list feature flags request'),
+        .optional(),
 })
 
 export const ListFeatureFlagsToolOutputSchema = z.object({
-    results: z.array(z.object({})),
-    next: z.string().optional().describe('URL to the next page of results'),
-    previous: z.string().optional().describe('URL to the previous page of results'),
-    count: z.number().describe('Total number of feature flags'),
+    results: z.array(z.object({}).passthrough()),
+    count: z.number(),
 })
 
 export type ListFeatureFlagsToolInput = z.infer<typeof ListFeatureFlagsToolInputSchema>
@@ -48,14 +37,17 @@ export class ListFeatureFlagsTool extends PostHogTool<ListFeatureFlagsToolInput,
     async execute(input: ListFeatureFlagsToolInput): Promise<ToolOutput<ListFeatureFlagsToolOutput>> {
         try {
             const queryParams = new URLSearchParams()
-            for (const [key, value] of Object.entries(input)) {
+            for (const [key, value] of Object.entries(input.query ?? {})) {
                 if (value !== undefined) {
                     queryParams.append(key, value.toString())
                 }
             }
 
             const queryString = queryParams.toString()
+
             const endpoint = `projects/${this.config.posthogProjectId}/feature_flags/${queryString ? '?' + queryString : ''}`
+
+            console.log('endpoint', endpoint)
 
             const data = await this.makeRequest<unknown>(endpoint, 'GET')
 
@@ -79,7 +71,8 @@ Usage:
 <list_feature_flags>
 <query>
 {
-  "active": true or false
+  "active": true or false,
+  "search": "an optional search term to filter the feature flags by"
 }
 </query>
 </list_feature_flags>`

@@ -63,7 +63,7 @@ import { LOCK_TEXT_SYMBOL, PostHogIgnoreController } from './ignore/PostHogIgnor
 import { PostHogProvider } from './webview/PostHogProvider'
 import { PostHogApiProvider } from '../api/provider'
 import { ADD_CAPTURE_CALLS_PROMPT } from './prompts/tools/add-capture-calls'
-import { ToolManager } from './tools/manager'
+import { ToolManager } from './tools/ToolManager'
 import { ToolInputValidationError } from './tools/base/errors'
 import { validateSchemaWithDefault } from '../shared/validation'
 import { z } from 'zod'
