@@ -5,6 +5,7 @@ import simpleGit, { SimpleGit } from 'simple-git'
 import { fileExistsAtPath } from '../../utils/fs'
 import { getLfsPatterns, writeExcludesFile } from './CheckpointExclusions'
 import { telemetryService } from '../../services/telemetry/TelemetryService'
+import { GIT_DISABLED_SUFFIX } from '../../utils/exclusions'
 
 interface CheckpointAddResult {
     success: boolean
@@ -212,5 +213,3 @@ export class GitOperations {
         }
     }
 }
-
-export const GIT_DISABLED_SUFFIX = '_disabled'
