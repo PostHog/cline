@@ -71,12 +71,11 @@ export interface ExtensionState {
     apiConfiguration?: ApiConfiguration
     autoApprovalSettings: AutoApprovalSettings
     browserSettings: BrowserSettings
-    chatSettings: ChatSettings
+    chatSettings?: ChatSettings
     checkpointTrackerErrorMessage?: string
     posthogMessages: PostHogMessage[]
     currentTaskItem?: HistoryItem
     customInstructions?: string
-    planActSeparateModelsSetting: boolean
     platform: Platform
     taskHistory: HistoryItem[]
     telemetrySetting: TelemetrySetting

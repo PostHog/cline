@@ -2,6 +2,7 @@ import { Anthropic } from '@anthropic-ai/sdk'
 import { withExponentialBackoff } from './utils/fetch'
 import { ApiStreamChunk, streamSse } from './utils/stream'
 import { anthropicDefaultModelId, AnthropicModelId, anthropicModels, ModelInfo } from '../shared/api'
+import { allModels } from '../shared/api'
 
 export class PostHogApiProvider {
     private apiBase: string
@@ -9,10 +10,13 @@ export class PostHogApiProvider {
     model: string
     thinking?: boolean
 
-    constructor(model: string, host?: string, apiKey?: string, thinking: boolean = false) {
+    constructor(model: keyof typeof allModels, host?: string, apiKey?: string, thinking: boolean = false) {
         this.apiKey = apiKey
         this.model = model
-        this.thinking = thinking
+        if (allModels[model]?.supportsExtendedThinking) {
+            // safeguard against using extended thinking on a model that doesn't support it
+            this.thinking = thinking
+        }
         if (!host) {
             host = 'us.posthog.com'
         }

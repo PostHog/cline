@@ -9,7 +9,6 @@ import { PostHogUsage } from '../analysis/codeAnalyzer'
 
 export interface WebviewMessage {
     type:
-        | 'apiConfiguration'
         | 'webviewDidLaunch'
         | 'newTask'
         | 'askResponse'
@@ -28,7 +27,7 @@ export interface WebviewMessage {
         | 'deleteMcpServer'
         | 'autoApprovalSettings'
         | 'browserSettings'
-        | 'togglePlanActMode'
+        | 'toggleChatMode'
         | 'checkpointDiff'
         | 'checkpointRestore'
         | 'taskCompletionViewChanges'
@@ -60,6 +59,7 @@ export interface WebviewMessage {
     number?: number
     autoApprovalSettings?: AutoApprovalSettings
     browserSettings?: BrowserSettings
+    chatMode?: ChatSettings['mode']
     chatSettings?: ChatSettings
     chatContent?: ChatContent
     mcpId?: string
@@ -72,7 +72,6 @@ export interface WebviewMessage {
     customToken?: string
     // For openInBrowser
     url?: string
-    planActSeparateModelsSetting?: boolean
     telemetrySetting?: TelemetrySetting
     enableTabAutocomplete?: boolean
     customInstructionsSetting?: string
