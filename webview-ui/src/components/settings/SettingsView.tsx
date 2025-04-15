@@ -30,6 +30,7 @@ const SettingsView = () => {
     const [modelIdErrorMessage, setModelIdErrorMessage] = useState<string | undefined>(undefined)
     const [pendingTabChange, setPendingTabChange] = useState<'plan' | 'act' | null>(null)
     const [activeTab, setActiveTab] = useState<SettingsTab>('general')
+    const [hasLoadedPosthogProjects, setHasLoadedPosthogProjects] = useState(false)
 
     const handleSubmit = () => {
         vscode.postMessage({
@@ -45,6 +46,13 @@ const SettingsView = () => {
         setApiErrorMessage(undefined)
         setModelIdErrorMessage(undefined)
     }, [apiConfiguration])
+
+    useEffect(() => {
+        if (!hasLoadedPosthogProjects) {
+            vscode.postMessage({ type: 'loadPosthogProjects' })
+            setHasLoadedPosthogProjects(true)
+        }
+    }, [hasLoadedPosthogProjects])
 
     // validate as soon as the component is mounted
     /*

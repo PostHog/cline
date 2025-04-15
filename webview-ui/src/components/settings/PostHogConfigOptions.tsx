@@ -40,12 +40,6 @@ const PostHogConfigOptions = () => {
         })
     }
 
-    useEffect(() => {
-        if (personalApiKey) {
-            vscode.postMessage({ type: 'loadPosthogProjects' })
-        }
-    }, [personalApiKey])
-
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 0 }}>
             <div>
