@@ -1,4 +1,4 @@
-export type ApiProvider = 'anthropic' | 'inkeep'
+export type ApiProvider = 'anthropic' | 'openai' | 'gemini' | 'inkeep'
 
 export type CompletionApiProvider = 'codestral'
 
@@ -76,8 +76,109 @@ export const codestralModels = {
     'codestral-latest': {},
 } as const satisfies Record<string, ModelInfo> // as const assertion makes the object deeply readonly
 
-export const allModels: Record<string, ModelInfo> = { ...anthropicModels, ...inkeepModels, ...codestralModels }
+// OpenAI
+// https://platform.openai.com/docs/models
+export type OpenAIModelId = keyof typeof openaiModels
+export const openaiModels = {
+    'gpt-4.1': {
+        maxTokens: 32_768,
+        contextWindow: 1_047_576,
+        supportsImages: true,
+    },
+    'gpt-4.1-mini': {
+        maxTokens: 32_768,
+        contextWindow: 1_047_576,
+        supportsImages: true,
+    },
+    'gpt-4.1-nano': {
+        maxTokens: 32_768,
+        contextWindow: 1_047_576,
+        supportsImages: true,
+    },
+    'o3-mini': {
+        maxTokens: 100_000,
+        contextWindow: 200_000,
+        supportsImages: false,
+    },
+    o1: {
+        maxTokens: 100_000,
+        contextWindow: 200_000,
+        supportsImages: true,
+    },
+    'o1-mini': {
+        maxTokens: 65_536,
+        contextWindow: 128_000,
+        supportsImages: true,
+    },
+    'gpt-4o': {
+        maxTokens: 4_096,
+        contextWindow: 128_000,
+        supportsImages: true,
+    },
+    'gpt-4o-mini': {
+        maxTokens: 16_384,
+        contextWindow: 128_000,
+        supportsImages: true,
+    },
+    'chatgpt-4o-latest': {
+        maxTokens: 16_384,
+        contextWindow: 128_000,
+        supportsImages: true,
+    },
+} as const satisfies Record<string, ModelInfo> // as const assertion makes the object deeply readonly
+
+// Gemini
+// https://ai.google.dev/gemini-api/docs/models
+export type GeminiModelId = keyof typeof geminiModels
+export const geminiModels = {
+    'gemini-2.0-flash-001': {
+        maxTokens: 8192,
+        contextWindow: 1_048_576,
+        supportsImages: true,
+    },
+    'gemini-2.0-flash-lite-001': {
+        maxTokens: 8192,
+        contextWindow: 1_048_576,
+        supportsImages: true,
+    },
+    'gemini-1.5-flash': {
+        maxTokens: 8192,
+        contextWindow: 1_048_576,
+        supportsImages: true,
+    },
+    'gemini-1.5-flash-8b': {
+        maxTokens: 8192,
+        contextWindow: 1_048_576,
+        supportsImages: true,
+    },
+} as const satisfies Record<string, ModelInfo> // as const assertion makes the object deeply readonly
+
+export const allModels: Record<string, ModelInfo> = {
+    ...anthropicModels,
+    ...inkeepModels,
+    ...codestralModels,
+    ...openaiModels,
+}
 
 export const anthropicDefaultModelId: keyof typeof allModels = 'claude-3-5-sonnet-20241022'
-export const autocompleteDefaultModelId: keyof typeof allModels = 'codestral-latest'
+export const openaiDefaultModelId: keyof typeof allModels = 'gpt-4.1'
+export const geminiDefaultModelId: keyof typeof allModels = 'gemini-2.0-flash-001'
+export const codestralDefaultModelId: keyof typeof allModels = 'codestral-latest'
 export const inkeepDefaultModelId: keyof typeof allModels = 'inkeep-qa-expert'
+
+export const getDefaultModelId = (provider: string): string => {
+    switch (provider) {
+        case 'anthropic':
+            return anthropicDefaultModelId
+        case 'openai':
+            return openaiDefaultModelId
+        case 'gemini':
+            return geminiDefaultModelId
+        case 'inkeep':
+            return inkeepDefaultModelId
+        case 'codestral':
+            return codestralDefaultModelId
+        default:
+            return ''
+    }
+}

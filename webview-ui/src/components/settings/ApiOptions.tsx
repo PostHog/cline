@@ -6,7 +6,12 @@ import {
     anthropicModels,
     ApiConfiguration,
     ApiProvider,
+    geminiDefaultModelId,
+    geminiModels,
+    getDefaultModelId,
     ModelInfo,
+    openaiDefaultModelId,
+    openaiModels,
 } from '../../../../src/shared/api'
 import { useExtensionState } from '../../context/ExtensionStateContext'
 import ModelDescriptionMarkdown from './ModelDescriptionMarkdown'
@@ -48,20 +53,31 @@ const ApiOptions = ({ modelIdErrorMessage, isPopup, mode }: ApiOptionsProps) => 
     const { chatSettings, setChatSettings } = useExtensionState()
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
 
-    // Memoize the input change handler
     const handleInputChange = useCallback(
         (field: keyof ApiConfiguration) => (event: any) => {
+            if (!chatSettings) return
+
             const newValue = event.target.value
-            if (!chatSettings) {
-                return
+            const modeSettings = chatSettings[mode]
+
+            if (field === 'apiProvider') {
+                setChatSettings({
+                    ...chatSettings,
+                    [mode]: {
+                        ...modeSettings,
+                        apiProvider: newValue as ApiProvider,
+                        apiModelId: getDefaultModelId(newValue),
+                    },
+                })
+            } else {
+                setChatSettings({
+                    ...chatSettings,
+                    [mode]: {
+                        ...modeSettings,
+                        [field]: newValue,
+                    },
+                })
             }
-            setChatSettings({
-                ...chatSettings,
-                [mode]: {
-                    ...chatSettings[mode],
-                    [field]: newValue,
-                },
-            })
         },
         [chatSettings, mode]
     )
@@ -135,6 +151,8 @@ const ApiOptions = ({ modelIdErrorMessage, isPopup, mode }: ApiOptionsProps) => 
                         }}
                     >
                         <VSCodeOption value="anthropic">Anthropic</VSCodeOption>
+                        <VSCodeOption value="openai">OpenAI</VSCodeOption>
+                        <VSCodeOption value="gemini">Google Gemini</VSCodeOption>
                     </VSCodeDropdown>
                 </DropdownContainer>
                 <DropdownContainer zIndex={2} className="dropdown-container">
@@ -142,6 +160,8 @@ const ApiOptions = ({ modelIdErrorMessage, isPopup, mode }: ApiOptionsProps) => 
                         <span style={{ fontWeight: 500 }}>Model</span>
                     </label>
                     {selectedProvider === 'anthropic' && createDropdown(anthropicModels)}
+                    {selectedProvider === 'openai' && createDropdown(openaiModels)}
+                    {selectedProvider === 'gemini' && createDropdown(geminiModels)}
                 </DropdownContainer>
 
                 {selectedProvider === 'anthropic' && selectedModelId === 'claude-3-7-sonnet-20250219' && (
@@ -285,6 +305,10 @@ export function normalizeApiConfiguration(apiConfiguration?: ApiConfiguration): 
     switch (provider) {
         case 'anthropic':
             return getProviderData(anthropicModels, anthropicDefaultModelId)
+        case 'openai':
+            return getProviderData(openaiModels, openaiDefaultModelId)
+        case 'gemini':
+            return getProviderData(geminiModels, geminiDefaultModelId)
         default:
             return getProviderData(anthropicModels, anthropicDefaultModelId)
     }

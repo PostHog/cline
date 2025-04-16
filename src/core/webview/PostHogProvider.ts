@@ -995,6 +995,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
 
     async updateChatSettings(chatSettings: ChatSettings) {
         await this.updateGlobalState('chatSettings', chatSettings)
+        await this.updateApiConfiguration(chatSettings[chatSettings.mode])
         if (this.posthog) {
             this.posthog.updateChatSettings(chatSettings)
         }
