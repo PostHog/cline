@@ -11,6 +11,7 @@ import { DEFAULT_BROWSER_SETTINGS } from '../../../src/shared/BrowserSettings'
 import { TelemetrySetting } from '../../../src/shared/TelemetrySetting'
 import { PostHogUsage } from '../../../src/analysis/codeAnalyzer'
 import { ChatSettings } from '../../../src/shared/ChatSettings'
+import { PostHogProject } from '../../../src/api/types'
 
 interface ExtensionStateContextType extends ExtensionState {
     didHydrateState: boolean
@@ -20,6 +21,7 @@ interface ExtensionStateContextType extends ExtensionState {
     filePaths: string[]
     totalTasksSize: number | null
     posthogUsage: PostHogUsage[]
+    posthogProjects: PostHogProject[]
     setApiConfiguration: (config: ApiConfiguration) => void
     setCustomInstructions: (value?: string) => void
     setTelemetrySetting: (value: TelemetrySetting) => void
@@ -49,6 +51,7 @@ export const ExtensionStateContextProvider: React.FC<{
     const [filePaths, setFilePaths] = useState<string[]>([])
     const [totalTasksSize, setTotalTasksSize] = useState<number | null>(null)
     const [posthogUsage, setPosthogUsage] = useState<PostHogUsage[]>([])
+    const [posthogProjects, setPosthogProjects] = useState<PostHogProject[]>([])
 
     const [mcpServers, setMcpServers] = useState<McpServer[]>([])
     const handleMessage = useCallback((event: MessageEvent) => {
@@ -58,7 +61,8 @@ export const ExtensionStateContextProvider: React.FC<{
                 setState(message.state!)
                 const config = message.state?.apiConfiguration
                 const hasKey = config ? config.posthogApiKey : false
-                setShowWelcome(!hasKey)
+                const hasProjectId = config ? config.posthogProjectId : false
+                setShowWelcome(!hasKey || !hasProjectId)
                 setDidHydrateState(true)
                 break
             }
@@ -98,6 +102,10 @@ export const ExtensionStateContextProvider: React.FC<{
                 setPosthogUsage(message.usage ?? [])
                 break
             }
+            case 'posthogProjects': {
+                setPosthogProjects(message.posthogProjects ?? [])
+                break
+            }
         }
     }, [])
 
@@ -116,6 +124,7 @@ export const ExtensionStateContextProvider: React.FC<{
         filePaths,
         totalTasksSize,
         posthogUsage,
+        posthogProjects,
         setApiConfiguration: (value) => {
             setState((prevState) => ({
                 ...prevState,

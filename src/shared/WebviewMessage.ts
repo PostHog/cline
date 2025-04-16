@@ -49,6 +49,7 @@ export interface WebviewMessage {
         | 'optionsResponse'
         | 'requestTotalTasksSize'
         | 'openFileAtUsageLocation'
+        | 'loadPosthogProjects'
     // | "relaunchChromeDebugMode"
     text?: string
     disabled?: boolean
