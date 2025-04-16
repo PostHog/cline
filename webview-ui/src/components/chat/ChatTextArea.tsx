@@ -843,13 +843,13 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 
         const tipText = () => {
             if (chatSettings?.mode === 'ask') {
-                return 'In Ask mode, PostHog will answer questions about the current project.'
+                return 'In Ask mode, Max will answer questions about the current project.'
             }
             if (chatSettings?.mode === 'plan') {
-                return 'In Plan mode, PostHog will gather information to architect a plan.'
+                return 'In Plan mode, Max will gather information to architect a plan.'
             }
             if (chatSettings?.mode === 'act') {
-                return 'In Act mode, PostHog will complete the task immediately.'
+                return 'In Act mode, Max will complete the task immediately.'
             }
             return ''
         }
