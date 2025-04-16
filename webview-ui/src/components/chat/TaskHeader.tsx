@@ -14,8 +14,9 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({ task, onClose }) => {
         <div style={{ padding: '10px 13px 10px 13px' }}>
             <div
                 style={{
-                    backgroundColor: 'var(--vscode-badge-background)',
-                    color: 'var(--vscode-badge-foreground)',
+                    backgroundColor: 'var(--vscode-statusBar-background)',
+                    color: 'var(--vscode-statusBar-foreground)',
+                    border: '1px solid var(--vscode-statusBar-border)',
                     borderRadius: '3px',
                     padding: '9px 10px 9px 10px',
                     display: 'flex',
