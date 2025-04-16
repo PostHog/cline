@@ -740,7 +740,7 @@ In each user message, the environment_details will specify the current mode. The
         : `ASK MODE
 
 - In ASK MODE, you use tools to answer questions about the current project or anything related to coding and software development.
-- When you have answered the user's question, you use the attempt_completion tool to present the result of the question to the user.`
+- When you have answered the user's question, you use the attempt_completion tool to confirm the task is complete.`
 }
 
 ====
