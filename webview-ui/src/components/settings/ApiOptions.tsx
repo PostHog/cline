@@ -1,6 +1,5 @@
-import { VSCodeDropdown, VSCodeOption } from '@vscode/webview-ui-toolkit/react'
+import { VSCodeDropdown, VSCodeOption, VSCodeCheckbox } from '@vscode/webview-ui-toolkit/react'
 import { Fragment, useCallback, useMemo, useState } from 'react'
-import ThinkingBudgetOption from './ThinkingBudgetOption'
 import styled from 'styled-components'
 import {
     anthropicDefaultModelId,
@@ -15,7 +14,14 @@ import ModelDescriptionMarkdown from './ModelDescriptionMarkdown'
 interface ApiOptionsProps {
     modelIdErrorMessage?: string
     isPopup?: boolean
+    mode: 'ask' | 'plan' | 'act'
 }
+
+const Container = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+`
 
 export const DropdownContainer = styled.div<{ zIndex?: number }>`
     position: relative;
@@ -38,26 +44,51 @@ declare module 'vscode' {
     }
 }
 
-const ApiOptions = ({ modelIdErrorMessage, isPopup }: ApiOptionsProps) => {
-    const { apiConfiguration, setApiConfiguration } = useExtensionState()
+const ApiOptions = ({ modelIdErrorMessage, isPopup, mode }: ApiOptionsProps) => {
+    const { chatSettings, setChatSettings } = useExtensionState()
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
 
     // Memoize the input change handler
     const handleInputChange = useCallback(
         (field: keyof ApiConfiguration) => (event: any) => {
             const newValue = event.target.value
-            setApiConfiguration({
-                ...apiConfiguration,
-                [field]: newValue,
+            if (!chatSettings) {
+                return
+            }
+            setChatSettings({
+                ...chatSettings,
+                [mode]: {
+                    ...chatSettings[mode],
+                    [field]: newValue,
+                },
             })
         },
-        [setApiConfiguration, apiConfiguration]
+        [chatSettings, mode]
     )
 
+    const handleToggleChange = useCallback(
+        (event: any) => {
+            const isChecked = (event.target as HTMLInputElement).checked
+            if (!chatSettings) {
+                return
+            }
+            setChatSettings({
+                ...chatSettings,
+                [mode]: {
+                    ...chatSettings[mode],
+                    thinkingEnabled: isChecked,
+                },
+            })
+        },
+        [chatSettings, mode]
+    )
     // Memoize the normalized configuration
     const { selectedProvider, selectedModelId, selectedModelInfo } = useMemo(() => {
+        if (!chatSettings)
+            return { selectedProvider: 'Loading...', selectedModelId: 'Loading...', selectedModelInfo: {} }
+        const apiConfiguration = chatSettings[mode]
         return normalizeApiConfiguration(apiConfiguration)
-    }, [apiConfiguration])
+    }, [chatSettings, mode])
 
     // Memoize the dropdown creation function
     const createDropdown = useCallback(
@@ -114,10 +145,11 @@ const ApiOptions = ({ modelIdErrorMessage, isPopup }: ApiOptionsProps) => {
                 </DropdownContainer>
 
                 {selectedProvider === 'anthropic' && selectedModelId === 'claude-3-7-sonnet-20250219' && (
-                    <ThinkingBudgetOption
-                        apiConfiguration={apiConfiguration}
-                        setApiConfiguration={setApiConfiguration}
-                    />
+                    <Container>
+                        <VSCodeCheckbox checked={chatSettings?.[mode]?.thinkingEnabled} onChange={handleToggleChange}>
+                            Enable extended thinking
+                        </VSCodeCheckbox>
+                    </Container>
                 )}
 
                 <ModelInfoView

@@ -18,7 +18,7 @@ import { UrlContentFetcher } from '../services/browser/UrlContentFetcher'
 import { listFiles } from '../services/glob/list-files'
 import { regexSearchFiles } from '../services/ripgrep'
 import { parseSourceCodeForDefinitionsTopLevel } from '../services/tree-sitter'
-import { anthropicDefaultModelId, ApiConfiguration } from '../shared/api'
+import { anthropicDefaultModelId, ApiConfiguration, inkeepDefaultModelId } from '../shared/api'
 import { findLast, findLastIndex, parsePartialArrayString } from '../shared/array'
 import { AutoApprovalSettings } from '../shared/AutoApprovalSettings'
 import { BrowserSettings } from '../shared/BrowserSettings'
@@ -167,7 +167,7 @@ export class PostHog {
         this.autoApprovalSettings = autoApprovalSettings
         this.browserSettings = browserSettings
         this.chatSettings = chatSettings
-        this.inkeepHandler = new PostHogApiProvider('inkeep-qa-expert', host, apiConfiguration.posthogApiKey)
+        this.inkeepHandler = new PostHogApiProvider(inkeepDefaultModelId, host, apiConfiguration.posthogApiKey)
         if (historyItem) {
             this.taskId = historyItem.id
             this.conversationHistoryDeletedRange = historyItem.conversationHistoryDeletedRange
@@ -1555,7 +1555,13 @@ export class PostHog {
 
         const supportsComputerUse = modelSupportsComputerUse && !disableBrowserTool // only enable computer use if the model supports it and the user hasn't disabled it
 
-        let systemPrompt = await SYSTEM_PROMPT(cwd, supportsComputerUse, mcpHub, this.browserSettings)
+        let systemPrompt = await SYSTEM_PROMPT(
+            cwd,
+            supportsComputerUse,
+            mcpHub,
+            this.browserSettings,
+            this.chatSettings.mode
+        )
 
         let settingsCustomInstructions = this.customInstructions?.trim()
         const preferredLanguage = getLanguageKey(
@@ -3946,8 +3952,10 @@ export class PostHog {
                 "\nIn this mode you should focus on information gathering, asking questions, and architecting a solution. Once you have a plan, use the plan_mode_respond tool to engage in a conversational back and forth with the user. Do not use the plan_mode_respond tool until you've gathered all the information you need e.g. with read_file or ask_followup_question."
             details +=
                 '\n(Remember: If it seems the user wants you to use tools only available in Act Mode, you should ask the user to "toggle to Act mode" (use those words) - they will have to manually do this themselves with the Plan/Act toggle button below. You do not have the ability to switch to Act Mode yourself, and must wait for the user to do it themselves once they are satisfied with the plan. You also cannot present an option to toggle to Act mode, as this will be something you need to direct the user to do manually themselves.)'
-        } else {
+        } else if (this.chatSettings.mode === 'act') {
             details += '\nACT MODE'
+        } else if (this.chatSettings.mode === 'ask') {
+            details += '\nASK MODE'
         }
 
         return `<environment_details>\n${details.trim()}\n</environment_details>`

@@ -23,19 +23,16 @@ const SettingsView = () => {
         telemetrySetting,
         setTelemetrySetting,
         chatSettings,
-        planActSeparateModelsSetting,
-        setPlanActSeparateModelsSetting,
     } = useExtensionState()
     const [apiErrorMessage, setApiErrorMessage] = useState<string | undefined>(undefined)
     const [modelIdErrorMessage, setModelIdErrorMessage] = useState<string | undefined>(undefined)
-    const [pendingTabChange, setPendingTabChange] = useState<'plan' | 'act' | null>(null)
+    const [pendingTabChange, setPendingTabChange] = useState<'ask' | 'plan' | 'act' | null>(null)
     const [activeTab, setActiveTab] = useState<SettingsTab>('general')
     const [hasLoadedPosthogProjects, setHasLoadedPosthogProjects] = useState(false)
 
     const handleSubmit = () => {
         vscode.postMessage({
             type: 'updateSettings',
-            planActSeparateModelsSetting,
             customInstructionsSetting: customInstructions,
             telemetrySetting,
             apiConfiguration: apiConfiguration,
@@ -74,10 +71,8 @@ const SettingsView = () => {
                 case 'didUpdateSettings':
                     if (pendingTabChange) {
                         vscode.postMessage({
-                            type: 'togglePlanActMode',
-                            chatSettings: {
-                                mode: pendingTabChange,
-                            },
+                            type: 'toggleChatMode',
+                            chatMode: pendingTabChange,
                         })
                         setPendingTabChange(null)
                     }
@@ -93,8 +88,8 @@ const SettingsView = () => {
         vscode.postMessage({ type: 'resetState' })
     }
 
-    const handleTabChange = (tab: 'plan' | 'act') => {
-        if (tab === chatSettings.mode) {
+    const handleTabChange = (tab: 'ask' | 'plan' | 'act') => {
+        if (tab === chatSettings?.mode) {
             return
         }
         setPendingTabChange(tab)
@@ -109,7 +104,7 @@ const SettingsView = () => {
                 marginBottom: '4px',
                 padding: '8px 16px',
                 backgroundColor: activeTab === tab ? 'var(--vscode-button-background)' : 'transparent',
-                color: activeTab === tab ? 'var(--vscode-button-foreground)' : 'var(--vscode-button-foreground)',
+                color: activeTab === tab ? 'var(--vscode-button-foreground)' : 'var(--vscode-foreground)',
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
@@ -189,57 +184,44 @@ const SettingsView = () => {
                     opacity: 0.2,
                 }}
             />
-            <div style={{ marginBottom: 5 }}>
-                <VSCodeCheckbox
-                    style={{ marginBottom: '5px' }}
-                    checked={planActSeparateModelsSetting}
-                    onChange={(e: any) => {
-                        const checked = e.target.checked === true
-                        setPlanActSeparateModelsSetting(checked)
-                    }}
-                >
-                    Use different models for Plan and Act modes
-                </VSCodeCheckbox>
-                <p style={{ fontSize: '12px', marginTop: '5px', color: 'var(--vscode-descriptionForeground)' }}>
-                    Switching between Plan and Act mode will persist the API and model used in the previous mode. This
-                    may be helpful e.g. when using a strong reasoning model to architect a plan for a cheaper coding
-                    model to act on.
-                </p>
-            </div>
-
-            {planActSeparateModelsSetting ? (
+            <div
+                style={{
+                    border: '1px solid var(--vscode-panel-border)',
+                    borderRadius: '4px',
+                    padding: '10px',
+                    marginBottom: '20px',
+                    background: 'var(--vscode-panel-background)',
+                }}
+            >
                 <div
                     style={{
-                        border: '1px solid var(--vscode-panel-border)',
-                        borderRadius: '4px',
-                        padding: '10px',
-                        marginBottom: '20px',
-                        background: 'var(--vscode-panel-background)',
+                        display: 'flex',
+                        gap: '1px',
+                        marginBottom: '10px',
+                        marginTop: -8,
+                        borderBottom: '1px solid var(--vscode-panel-border)',
                     }}
                 >
-                    <div
-                        style={{
-                            display: 'flex',
-                            gap: '1px',
-                            marginBottom: '10px',
-                            marginTop: -8,
-                            borderBottom: '1px solid var(--vscode-panel-border)',
-                        }}
-                    >
-                        <TabButton isActive={chatSettings.mode === 'plan'} onClick={() => handleTabChange('plan')}>
-                            Plan Mode
-                        </TabButton>
-                        <TabButton isActive={chatSettings.mode === 'act'} onClick={() => handleTabChange('act')}>
-                            Act Mode
-                        </TabButton>
-                    </div>
-                    <div style={{ marginBottom: -12 }}>
-                        <ApiOptions key={chatSettings.mode} modelIdErrorMessage={modelIdErrorMessage} />
-                    </div>
+                    <TabButton isActive={chatSettings?.mode === 'ask'} onClick={() => handleTabChange('ask')}>
+                        Ask Mode
+                    </TabButton>
+                    <TabButton isActive={chatSettings?.mode === 'plan'} onClick={() => handleTabChange('plan')}>
+                        Plan Mode
+                    </TabButton>
+                    <TabButton isActive={chatSettings?.mode === 'act'} onClick={() => handleTabChange('act')}>
+                        Act Mode
+                    </TabButton>
                 </div>
-            ) : (
-                <ApiOptions key={'single'} modelIdErrorMessage={modelIdErrorMessage} />
-            )}
+                {chatSettings && (
+                    <div style={{ marginBottom: -12 }}>
+                        <ApiOptions
+                            key={chatSettings.mode}
+                            mode={chatSettings.mode}
+                            modelIdErrorMessage={modelIdErrorMessage}
+                        />
+                    </div>
+                )}
+            </div>
         </>
     )
 
