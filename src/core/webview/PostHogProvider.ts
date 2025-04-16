@@ -45,6 +45,7 @@ import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
 import { getStatusBarStatus, setupStatusBar, StatusBarStatus } from '../../autocomplete/statusBar'
 import { PostHogApiProvider } from '../../api/provider'
 import { PostHogClient } from '../../api/posthogClient'
+import { getHost } from '../../api/utils/host'
 /*
 https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
 
@@ -844,7 +845,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
                     case 'loadPosthogProjects': {
                         const { apiConfiguration } = await this.getState()
                         const posthogClient = new PostHogClient(
-                            apiConfiguration.posthogHost,
+                            getHost(apiConfiguration),
                             apiConfiguration.posthogApiKey
                         )
                         const projects = await posthogClient.listProjects()

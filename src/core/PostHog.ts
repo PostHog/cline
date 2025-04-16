@@ -67,9 +67,10 @@ import { LOCK_TEXT_SYMBOL, PostHogIgnoreController } from './ignore/PostHogIgnor
 import { PostHogProvider } from './webview/PostHogProvider'
 import { PostHogApiProvider } from '../api/provider'
 import { ADD_CAPTURE_CALLS_PROMPT } from './prompts/tools/add-capture-calls'
-import { MaxToolsProvider } from '../api/max_tools'
+import { MaxTools, MaxToolsProvider } from '../api/maxTools'
 import { validateSchemaWithDefault } from '../shared/validation'
 import { z } from 'zod'
+import { getHost } from '../api/utils/host'
 
 const cwd =
     vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), 'Desktop') // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
@@ -146,13 +147,14 @@ export class PostHog {
         this.providerRef = new WeakRef(provider)
         this.apiProvider = apiConfiguration.apiProvider
         this.completionApiProvider = apiConfiguration.completionApiProvider
+        const host = getHost(apiConfiguration)
         this.api = new PostHogApiProvider(
             apiConfiguration.apiModelId ?? anthropicDefaultModelId,
-            apiConfiguration.posthogHost,
+            host,
             apiConfiguration.posthogApiKey
         )
         this.maxToolsProvider = new MaxToolsProvider(
-            apiConfiguration.posthogHost,
+            host,
             apiConfiguration.posthogApiKey,
             apiConfiguration.posthogProjectId
         )
@@ -165,11 +167,7 @@ export class PostHog {
         this.autoApprovalSettings = autoApprovalSettings
         this.browserSettings = browserSettings
         this.chatSettings = chatSettings
-        this.inkeepHandler = new PostHogApiProvider(
-            'inkeep-qa',
-            apiConfiguration.posthogHost,
-            apiConfiguration.posthogApiKey
-        )
+        this.inkeepHandler = new PostHogApiProvider('inkeep-qa', host, apiConfiguration.posthogApiKey)
         if (historyItem) {
             this.taskId = historyItem.id
             this.conversationHistoryDeletedRange = historyItem.conversationHistoryDeletedRange
@@ -3964,9 +3962,9 @@ export class PostHog {
     }
 
     async createAndQueryInsightTool(insight_type: string, query: string): Promise<ToolResponse> {
-        const result = await this.maxToolsProvider.callTool('insights', {
-            query_type: insight_type,
-            query_description: query,
+        const result = await this.maxToolsProvider.callTool(MaxTools.CREATE_AND_QUERY_INSIGHT, {
+            insight_type,
+            query,
         })
         await this.say(
             'tool',

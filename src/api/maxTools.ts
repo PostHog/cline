@@ -7,6 +7,10 @@ interface Query {
     source: Query
 }
 
+export enum MaxTools {
+    CREATE_AND_QUERY_INSIGHT = 'create_and_query_insight',
+}
+
 const buildInsightEndpoint = (query: Query) => {
     if (query.kind === 'HogQLQuery') {
         return `/sql?open_query=${encodeURIComponent(query.query)}`
@@ -27,18 +31,15 @@ export class MaxToolsProvider {
     private projectId?: number
 
     constructor(apiHost?: string, apiKey?: string, projectId?: string) {
+        this.apiHost = apiHost
         this.apiKey = apiKey
         if (projectId) {
             this.projectId = parseInt(projectId)
         }
-        if (!apiHost) {
-            apiHost = 'https://us.posthog.com'
-        }
-        this.apiHost = process.env.IS_DEV ? 'http://localhost:8010' : apiHost
-        this.apiBase = `${this.apiHost}/api/max_tools/`
+        this.apiBase = `${this.apiHost}/api/environments/${this.projectId}/max_tools/`
     }
 
-    async callTool(toolName: string, toolParams: Record<string, any>) {
+    async callTool(toolName: MaxTools, toolParams: Record<string, any>) {
         if (!this.apiKey) {
             throw new Error('No API key provided')
         }
@@ -46,15 +47,11 @@ export class MaxToolsProvider {
             throw new Error('No project ID provided')
         }
         const endpoint = new URL(toolName, this.apiBase)
-        const params = {
-            ...toolParams,
-            project_id: this.projectId,
-        }
         const resp = await withExponentialBackoff<Response>(
             () =>
                 fetch(endpoint, {
                     method: 'POST',
-                    body: JSON.stringify(params),
+                    body: JSON.stringify(toolParams),
                     headers: {
                         'Content-Type': 'application/json',
                         Accept: 'text/event-stream',

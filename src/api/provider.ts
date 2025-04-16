@@ -14,10 +14,7 @@ export class PostHogApiProvider {
         this.apiKey = apiKey
         this.model = model
         this.thinking = thinking
-        if (!host) {
-            host = 'https://us.posthog.com'
-        }
-        this.apiHost = process.env.IS_DEV ? 'http://localhost:8010' : host
+        this.apiHost = host
         this.apiBase = `${this.apiHost}/api/llm_proxy/`
     }
 

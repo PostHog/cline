@@ -9,10 +9,7 @@ export class PostHogClient {
 
     constructor(apiHost?: string, apiKey?: string) {
         this.apiKey = apiKey
-        if (!apiHost) {
-            apiHost = 'https://us.posthog.com'
-        }
-        this.apiHost = process.env.IS_DEV ? 'http://localhost:8010' : apiHost
+        this.apiHost = apiHost
         this.initializeApi()
     }
 
@@ -51,9 +48,7 @@ export class PostHogClient {
         }
         try {
             // Include personal_api_key in the query string as an alternative authentication method
-            const response = await this.api.get(
-                `/api/organizations/@current/projects/?personal_api_key=${encodeURIComponent(this.apiKey)}`
-            )
+            const response = await this.api.get('/api/organizations/@current/projects/')
             return response.data.results
         } catch (error) {
             this.handleApiError(error, 'Failed to fetch projects')
