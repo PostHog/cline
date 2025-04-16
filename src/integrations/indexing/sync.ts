@@ -1,7 +1,7 @@
 import * as vscode from 'vscode'
 import { Logger } from '../../services/logging/Logger'
 import { CodebaseTag } from './codebase-tag'
-import { DFSWalker } from './walker'
+import { MerkleTreeWalker } from './walker'
 import { TreeNode } from './types'
 
 export interface Codebase {
@@ -55,6 +55,14 @@ export class CodebaseSyncIntegration {
         if (!this.initialized) {
             return
         }
+
+        const divergingFiles = await Promise.all(
+            Array.from(this.workspaceSyncServices.values()).map((workspaceSync) =>
+                workspaceSync.retrieveDivergingFiles()
+            )
+        )
+
+        console.log(divergingFiles)
     }
 }
 
@@ -97,23 +105,26 @@ class WorkspaceSync {
         }
     }
 
-    async *sync() {
+    async *retrieveDivergingFiles() {
         if (!this.canSync) {
             return
         }
 
-        const tree: TreeNode[] = []
-        const status = await this.checkSyncedCodebase(tree)
+        const merkleTree = await new MerkleTreeWalker(this.workspace.fsPath).buildTree()
+        const treeNodes = Array.from(merkleTree.toTreeNodes())
+        const status = await this.checkSyncedCodebase(treeNodes)
 
         if (status.synced) {
             return
         }
 
-        yield status
-    }
-
-    private async *walkDirs() {
-        yield* new DFSWalker(this.workspace.fsPath, {}).walk()
+        const hashToNodeMap = merkleTree.toLeafNodesMap()
+        for (const nodeHash of status.diverging_files) {
+            const node = hashToNodeMap.get(nodeHash)
+            if (node) {
+                yield node
+            }
+        }
     }
 
     private async createCodebase(): Promise<string> {
@@ -141,7 +152,7 @@ class WorkspaceSync {
                 Authorization: `Bearer ${this.config.apiKey}`,
             },
             body: JSON.stringify({
-                treeNodes,
+                tree: treeNodes,
             }),
         })
         const data = (await response.json()) as CodebaseSyncStatus

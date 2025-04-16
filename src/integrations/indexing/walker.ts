@@ -1,31 +1,13 @@
 import ignore, { Ignore } from 'ignore'
-import { joinPathsToUri } from '../../utils/uri'
-import { ignoreDirsAndFiles } from '../../utils/exclusions'
+import limit from 'p-limit'
 import { FileType } from 'vscode'
 import { fileURLToPath } from 'node:url'
 import * as fs from 'node:fs/promises'
-import { createHash } from 'crypto'
-import limit from 'p-limit'
-
-export interface WalkerOptions {
-    include?: 'dirs' | 'files' | 'both'
-    returnRelativeUrisPaths?: boolean
-    source?: string
-    overrideDefaultIgnores?: Ignore
-    recursive?: boolean
-}
-
-export interface MerkleNode {
-    path: string
-    type: 'file' | 'directory'
-    hash: string
-    children: MerkleNode[]
-}
+import { joinPathsToUri } from '../../utils/uri'
+import { ignoreDirsAndFiles } from '../../utils/exclusions'
+import { MerkleTreeNode } from './merkle-tree-node'
 
 type Entry = [string, FileType]
-
-const LIST_DIR_CACHE_TIME = 30_000 // 30 seconds
-const IGNORE_FILE_CACHE_TIME = 30_000 // 30 seconds
 
 // helper struct used for the DFS walk
 interface WalkableEntry {
@@ -75,9 +57,30 @@ async function readFile(fileUri: string): Promise<string> {
     return fs.readFile(filepath, 'utf8')
 }
 
+async function listDir(dir: string): Promise<[string, FileType][]> {
+    const filepath = fileURLToPath(dir)
+    const contents = await fs.readdir(filepath, { withFileTypes: true })
+
+    const all: [string, FileType][] = contents.map((dirent) => {
+        if (dirent.isDirectory()) {
+            return [dirent.name, FileType.Directory]
+        }
+
+        if (dirent.isSymbolicLink()) {
+            return [dirent.name, FileType.SymbolicLink]
+        }
+
+        return [dirent.name, FileType.File]
+    })
+
+    return all
+}
+
 export class MerkleTreeWalker {
     timings: Record<string, number>
     childrenLimit = limit(10)
+    private readonly LIST_DIR_CACHE_TIME = 30_000 // 30 seconds
+    private readonly IGNORE_FILE_CACHE_TIME = 30_000 // 30 seconds
 
     constructor(private readonly uri: string) {
         this.timings = {
@@ -92,7 +95,7 @@ export class MerkleTreeWalker {
     }
 
     // Build a merkle tree from the directory structure
-    public async buildMerkleTree(): Promise<MerkleNode> {
+    public async buildTree(): Promise<MerkleTreeNode> {
         this.timings.start = Date.now()
 
         // Get default ignores
@@ -113,12 +116,7 @@ export class MerkleTreeWalker {
         }
 
         // This will be our final merkle tree
-        const rootNode: MerkleNode = {
-            path: this.uri,
-            type: 'directory',
-            hash: '',
-            children: [],
-        }
+        const rootNode = new MerkleTreeNode(this.uri, 'dir')
 
         // Use a stack for DFS traversal
         const stack = [{ context: rootContext, node: rootNode }]
@@ -133,11 +131,11 @@ export class MerkleTreeWalker {
             section = Date.now()
             let entries: [string, FileType][] = []
             const cachedListdir = walkDirCache.dirListCache.get(cur.walkableEntry.uri)
-            if (cachedListdir && cachedListdir.time > Date.now() - LIST_DIR_CACHE_TIME) {
+            if (cachedListdir && cachedListdir.time > Date.now() - this.LIST_DIR_CACHE_TIME) {
                 entries = await cachedListdir.entries
                 this.timings.listDirCacheHits++
             } else {
-                const promise = this.listDir(cur.walkableEntry.uri)
+                const promise = listDir(cur.walkableEntry.uri)
                 walkDirCache.dirListCache.set(cur.walkableEntry.uri, {
                     time: Date.now(),
                     entries: promise,
@@ -150,7 +148,7 @@ export class MerkleTreeWalker {
             section = Date.now()
             let newIgnore: Ignore
             const cachedIgnore = walkDirCache.dirIgnoreCache.get(cur.walkableEntry.uri)
-            if (cachedIgnore && cachedIgnore.time > Date.now() - IGNORE_FILE_CACHE_TIME) {
+            if (cachedIgnore && cachedIgnore.time > Date.now() - this.IGNORE_FILE_CACHE_TIME) {
                 newIgnore = await cachedIgnore.ignore
                 this.timings.ignoreCacheHits++
             } else {
@@ -204,12 +202,7 @@ export class MerkleTreeWalker {
 
                     if (this.entryIsDirectory(entry)) {
                         // Create a new merkle node for this directory
-                        const dirNode: MerkleNode = {
-                            path: walkableEntry.uri,
-                            type: 'directory',
-                            hash: '', // Will compute after processing children
-                            children: [],
-                        }
+                        const dirNode = new MerkleTreeNode(walkableEntry.uri, 'dir')
 
                         // Add this directory to parent's children
                         currentNode.children.push(dirNode)
@@ -223,21 +216,7 @@ export class MerkleTreeWalker {
                             node: dirNode,
                         })
                     } else {
-                        // For files, compute the hash immediately
-                        const filePath = fileURLToPath(walkableEntry.uri)
-                        const fileContent = await fs.readFile(filePath)
-                        const fileHash = createHash('sha256').update(new Uint8Array(fileContent)).digest('hex')
-
-                        // Create a merkle node for this file
-                        const fileNode: MerkleNode = {
-                            path: walkableEntry.uri,
-                            type: 'file',
-                            hash: fileHash,
-                            children: [],
-                        }
-
-                        // Add this file to parent's children
-                        currentNode.children.push(fileNode)
+                        currentNode.children.push(new MerkleTreeNode(walkableEntry.uri, 'file'))
                     }
                 })
             )
@@ -245,10 +224,7 @@ export class MerkleTreeWalker {
             await Promise.all(childrenPromises)
         }
 
-        // Now calculate hashes for directories in a bottom-up manner
-        await this.calculateDirectoryHashes(rootNode)
-
-        return rootNode
+        return rootNode.buildHashes()
     }
 
     private isPathIgnored(path: string, ignoreContexts: IgnoreContext[]) {
@@ -271,51 +247,6 @@ export class MerkleTreeWalker {
         return false
     }
 
-    // Calculate directory hashes based on children's hashes
-    private async calculateDirectoryHashes(node: MerkleNode): Promise<void> {
-        if (node.type === 'directory' && node.children && node.children.length > 0) {
-            // First calculate hashes for all child directories recursively
-            for (const child of node.children) {
-                if (child.type === 'directory') {
-                    await this.calculateDirectoryHashes(child)
-                }
-            }
-
-            // Now compute hash based on children's hashes and names
-            const hasher = createHash('sha256')
-
-            // Sort children by path to ensure deterministic hashing
-            node.children.sort((a, b) => a.path.localeCompare(b.path))
-
-            for (const child of node.children) {
-                // Combine path and hash to create the directory hash
-                hasher.update(child.path)
-                hasher.update(child.hash)
-            }
-
-            node.hash = hasher.digest('hex')
-        }
-    }
-
-    async listDir(dir: string): Promise<[string, FileType][]> {
-        const filepath = fileURLToPath(dir)
-        const contents = await fs.readdir(filepath, { withFileTypes: true })
-
-        const all: [string, FileType][] = contents.map((dirent) => {
-            if (dirent.isDirectory()) {
-                return [dirent.name, FileType.Directory]
-            }
-
-            if (dirent.isSymbolicLink()) {
-                return [dirent.name, FileType.SymbolicLink]
-            }
-
-            return [dirent.name, FileType.File]
-        })
-
-        return all
-    }
-
     private entryIsDirectory(entry: Entry) {
         return entry[1] === FileType.Directory
     }
@@ -323,31 +254,9 @@ export class MerkleTreeWalker {
     private entryIsSymlink(entry: Entry) {
         return entry[1] === FileType.SymbolicLink
     }
-
-    // Original walk method kept for backward compatibility
-    public async *walk(): AsyncGenerator<string> {
-        const merkleTree = await this.buildMerkleTree()
-
-        // Flatten the merkle tree to return paths in the same format as the original walker
-        for await (const path of this.flattenMerkleTree(merkleTree)) {
-            yield path
-        }
-    }
-
-    private async *flattenMerkleTree(node: MerkleNode): AsyncGenerator<string> {
-        if (node.type === 'file') {
-            yield node.path
-        } else if (node.type === 'directory' && node.children) {
-            for (const child of node.children) {
-                for await (const path of this.flattenMerkleTree(child)) {
-                    yield path
-                }
-            }
-        }
-    }
 }
 
-export function gitIgArrayFromFile(file: string) {
+function getGitIgnoreArrayFromFile(file: string) {
     return file
         .split(/\r?\n/) // Split on new line
         .map((l) => l.trim()) // Remove whitespace
@@ -364,27 +273,27 @@ export async function getIgnoreContext(
         .map(([name, _]) => name)
 
     // Find ignore files and get ignore arrays from their contexts
-    // These are done separately so that .continueignore can override .gitignore
+    // These are done separately so that .posthogignore can override .gitignore
     const gitIgnoreFile = dirFiles.find((name) => name === '.gitignore')
-    const continueIgnoreFile = dirFiles.find((name) => name === '.posthogignore')
+    const editorIgnoreFile = dirFiles.find((name) => name === '.posthogignore')
 
     const getGitIgnorePatterns = async () => {
         if (gitIgnoreFile) {
             const contents = await readFile(`${currentDir}/.gitignore`)
-            return gitIgArrayFromFile(contents)
+            return getGitIgnoreArrayFromFile(contents)
         }
         return []
     }
 
-    const getContinueIgnorePatterns = async () => {
-        if (continueIgnoreFile) {
+    const getEditorIgnorePatterns = async () => {
+        if (editorIgnoreFile) {
             const contents = await readFile(`${currentDir}/.posthogignore`)
-            return gitIgArrayFromFile(contents)
+            return getGitIgnoreArrayFromFile(contents)
         }
         return []
     }
 
-    const ignoreArrays = await Promise.all([getGitIgnorePatterns(), getContinueIgnorePatterns()])
+    const ignoreArrays = await Promise.all([getGitIgnorePatterns(), getEditorIgnorePatterns()])
 
     if (ignoreArrays[0].length === 0 && ignoreArrays[1].length === 0) {
         return defaultAndGlobalIgnores
@@ -393,8 +302,8 @@ export async function getIgnoreContext(
     // Note precedence here!
     const ignoreContext = ignore()
         .add(ignoreArrays[0]) // gitignore
-        .add(defaultAndGlobalIgnores) // default file/folder ignores followed by global .continueignore
-        .add(ignoreArrays[1]) // local .continueignore
+        .add(defaultAndGlobalIgnores) // default file/folder ignores followed by global .posthogignore
+        .add(ignoreArrays[1]) // local .posthogignore
 
     return ignoreContext
 }
