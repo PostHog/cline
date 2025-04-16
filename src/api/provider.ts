@@ -5,6 +5,7 @@ import { anthropicDefaultModelId, AnthropicModelId, anthropicModels, ModelInfo }
 
 export class PostHogApiProvider {
     private apiBase: string
+    apiHost?: string
     apiKey?: string
     model: string
     thinking?: boolean
@@ -13,10 +14,8 @@ export class PostHogApiProvider {
         this.apiKey = apiKey
         this.model = model
         this.thinking = thinking
-        if (!host) {
-            host = 'us.posthog.com'
-        }
-        this.apiBase = process.env.IS_DEV ? 'http://localhost:8010/api/llm_proxy/' : `https://${host}/api/llm_proxy/`
+        this.apiHost = host
+        this.apiBase = `${this.apiHost}/api/llm_proxy/`
     }
 
     async *stream(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): AsyncGenerator<ApiStreamChunk> {

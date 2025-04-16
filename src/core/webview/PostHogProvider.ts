@@ -44,6 +44,8 @@ import { GlobalFileNames } from '../../global-constants'
 import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
 import { getStatusBarStatus, setupStatusBar, StatusBarStatus } from '../../autocomplete/statusBar'
 import { PostHogApiProvider } from '../../api/provider'
+import { PostHogClient } from '../../api/posthogClient'
+import { getHost } from '../../api/utils/host'
 /*
 https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
 
@@ -70,6 +72,7 @@ type GlobalStateKey =
     | 'planActSeparateModelsSetting'
     | 'enableTabAutocomplete'
     | 'posthogHost'
+    | 'posthogProjectId'
 export class PostHogProvider implements vscode.WebviewViewProvider {
     public static readonly sideBarId = 'posthog.SidebarProvider' // used in package.json as the view's id. This value cannot be changed due to how vscode caches views based on their id, and updating the id would break existing instances of the extension.
     public static readonly tabPanelId = 'posthog.TabPanelProvider'
@@ -839,6 +842,19 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
                         }
                         break
                     }
+                    case 'loadPosthogProjects': {
+                        const { apiConfiguration } = await this.getState()
+                        const posthogClient = new PostHogClient(
+                            getHost(apiConfiguration),
+                            apiConfiguration.posthogApiKey
+                        )
+                        const projects = await posthogClient.listProjects()
+                        await this.postMessageToWebview({
+                            type: 'posthogProjects',
+                            posthogProjects: projects,
+                        })
+                        break
+                    }
                 }
             },
             null,
@@ -971,7 +987,8 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
     }
 
     async updateApiConfiguration(apiConfiguration: ApiConfiguration) {
-        const { apiProvider, apiModelId, posthogApiKey, thinkingEnabled, posthogHost } = apiConfiguration
+        const { apiProvider, apiModelId, posthogApiKey, thinkingEnabled, posthogHost, posthogProjectId } =
+            apiConfiguration
         if (apiProvider) {
             await this.updateGlobalState('apiProvider', apiProvider)
         }
@@ -986,6 +1003,9 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
         }
         if (thinkingEnabled !== undefined) {
             await this.updateGlobalState('thinkingEnabled', thinkingEnabled)
+        }
+        if (posthogProjectId) {
+            await this.updateGlobalState('posthogProjectId', posthogProjectId)
         }
         const { apiConfiguration: updatedApiConfiguration } = await this.getState()
         if (this.posthog) {
@@ -1397,7 +1417,8 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
             thinkingEnabled,
             planActSeparateModelsSettingRaw,
             enableTabAutocomplete,
-            storedPosthogHost,
+            storedPostHogHost,
+            posthogProjectId,
         ] = await Promise.all([
             this.getGlobalState('apiProvider') as Promise<ApiProvider | undefined>,
             this.getGlobalState('completionApiProvider') as Promise<CompletionApiProvider | undefined>,
@@ -1418,6 +1439,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
             this.getGlobalState('planActSeparateModelsSetting') as Promise<boolean | undefined>,
             this.getGlobalState('enableTabAutocomplete') as Promise<boolean | undefined>,
             this.getGlobalState('posthogHost') as Promise<string | undefined>,
+            this.getGlobalState('posthogProjectId') as Promise<string | undefined>,
         ])
 
         let apiProvider: ApiProvider
@@ -1440,8 +1462,8 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
             completionApiProvider = 'codestral'
         }
         let posthogHost: string
-        if (storedPosthogHost) {
-            posthogHost = storedPosthogHost
+        if (storedPostHogHost) {
+            posthogHost = storedPostHogHost
         } else {
             posthogHost = 'https://us.posthog.com'
         }
@@ -1471,6 +1493,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
                 apiModelId,
                 posthogHost,
                 posthogApiKey,
+                posthogProjectId,
                 thinkingEnabled,
             },
             customInstructions,
