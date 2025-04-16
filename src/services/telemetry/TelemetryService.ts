@@ -53,10 +53,6 @@ class PostHogTelemetryClient {
             TASK_POPPED: 'ui.task_popped',
             // Tracks when a different model is selected
             MODEL_SELECTED: 'ui.model_selected',
-            // Tracks when planning mode is toggled on
-            PLAN_MODE_TOGGLED: 'ui.plan_mode_toggled',
-            // Tracks when action mode is toggled on
-            ACT_MODE_TOGGLED: 'ui.act_mode_toggled',
             // Tracks when the autocomplete config menu is opened
             OPEN_TAB_AUTOCOMPLETE_CONFIG_MENU: 'ui.open_tab_autocomplete_config_menu',
         },
@@ -214,7 +210,7 @@ class PostHogTelemetryClient {
      * @param taskId Unique identifier for the task
      * @param mode The mode being switched to (plan or act)
      */
-    public captureModeSwitch(taskId: string, mode: 'plan' | 'act') {
+    public captureModeSwitch(taskId: string, mode: 'plan' | 'act' | 'ask') {
         this.capture({
             event: PostHogTelemetryClient.EVENTS.TASK.MODE_SWITCH,
             properties: {

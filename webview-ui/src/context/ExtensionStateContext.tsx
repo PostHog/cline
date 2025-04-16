@@ -8,10 +8,11 @@ import { McpServer } from '../../../src/shared/mcp'
 import { convertTextMateToHljs } from '../utils/textMateToHljs'
 import { vscode } from '../utils/vscode'
 import { DEFAULT_BROWSER_SETTINGS } from '../../../src/shared/BrowserSettings'
-import { DEFAULT_CHAT_SETTINGS } from '../../../src/shared/ChatSettings'
 import { TelemetrySetting } from '../../../src/shared/TelemetrySetting'
 import { PostHogUsage } from '../../../src/analysis/codeAnalyzer'
+import { ChatSettings } from '../../../src/shared/ChatSettings'
 import { PostHogProject } from '../../../src/api/types'
+
 interface ExtensionStateContextType extends ExtensionState {
     didHydrateState: boolean
     showWelcome: boolean
@@ -24,8 +25,8 @@ interface ExtensionStateContextType extends ExtensionState {
     setApiConfiguration: (config: ApiConfiguration) => void
     setCustomInstructions: (value?: string) => void
     setTelemetrySetting: (value: TelemetrySetting) => void
-    setPlanActSeparateModelsSetting: (value: boolean) => void
     setEnableTabAutocomplete: (value: boolean) => void
+    setChatSettings: (value: ChatSettings) => void
 }
 
 const ExtensionStateContext = createContext<ExtensionStateContextType | undefined>(undefined)
@@ -39,11 +40,9 @@ export const ExtensionStateContextProvider: React.FC<{
         taskHistory: [],
         autoApprovalSettings: DEFAULT_AUTO_APPROVAL_SETTINGS,
         browserSettings: DEFAULT_BROWSER_SETTINGS,
-        chatSettings: DEFAULT_CHAT_SETTINGS,
         platform: DEFAULT_PLATFORM,
         telemetrySetting: 'unset',
         vscMachineId: '',
-        planActSeparateModelsSetting: true,
         enableTabAutocomplete: true,
     })
     const [didHydrateState, setDidHydrateState] = useState(false)
@@ -156,25 +155,24 @@ export const ExtensionStateContextProvider: React.FC<{
                 telemetrySetting: value,
             })
         },
-        setPlanActSeparateModelsSetting: (value) => {
+        setEnableTabAutocomplete: (value) => {
             setState((prevState) => ({
                 ...prevState,
-                planActSeparateModelsSetting: value,
+                enableTabAutocomplete: value,
             }))
             vscode.postMessage({
                 type: 'updateSettings',
-                planActSeparateModelsSetting: value,
+                enableTabAutocomplete: value,
             })
         },
-        setEnableTabAutocomplete: (value) => {
-            console.log('setEnableTabAutocomplete', value)
+        setChatSettings: (value) => {
             setState((prevState) => ({
                 ...prevState,
-                enableTabAutocomplete: value,
+                chatSettings: value,
             }))
             vscode.postMessage({
                 type: 'updateSettings',
-                enableTabAutocomplete: value,
+                chatSettings: value,
             })
         },
     }
