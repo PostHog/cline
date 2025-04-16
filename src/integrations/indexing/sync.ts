@@ -1,6 +1,8 @@
 import * as vscode from 'vscode'
 import { Logger } from '../../services/logging/Logger'
 import { CodebaseTag } from './codebase-tag'
+import { DFSWalker } from './walker'
+import { TreeNode } from './types'
 
 export interface Codebase {
     id: string
@@ -61,12 +63,6 @@ export interface SyncStatus {
     ts: number
 }
 
-export interface TreeNode {
-    id: string
-    parent_id?: string
-    type: 'file' | 'dir'
-}
-
 export interface CodebaseSyncStatus {
     diverging_files: string[]
     synced: boolean
@@ -114,6 +110,10 @@ class WorkspaceSync {
         }
 
         yield status
+    }
+
+    private async *walkDirs() {
+        yield* new DFSWalker(this.workspace.fsPath, {}).walk()
     }
 
     private async createCodebase(): Promise<string> {
