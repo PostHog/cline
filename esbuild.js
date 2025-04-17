@@ -96,7 +96,7 @@ const extensionConfig = {
     sourcesContent: false,
     platform: 'node',
     outfile: 'dist/extension.js',
-    external: ['vscode', 'sqlite3'],
+    external: ['vscode'],
     target: 'node16',
     mainFields: ['main', 'module'],
 }

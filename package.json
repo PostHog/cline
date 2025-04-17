@@ -248,6 +248,7 @@
         }
     },
     "scripts": {
+        "postinstall": "patch-package",
         "vscode:prepublish": "npm run package",
         "compile": "npm run check-types && npm run lint && node esbuild.js",
         "watch": "npm-run-all -p watch:*",
@@ -293,6 +294,7 @@
         "eslint": "^8.57.0",
         "husky": "^9.1.7",
         "npm-run-all": "^4.1.5",
+        "patch-package": "^8.0.0",
         "prettier": "^3.3.3",
         "should": "^13.2.3",
         "sinon": "^19.0.2",
