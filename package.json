@@ -3,6 +3,7 @@
     "displayName": "PostHog",
     "description": "Autonomous coding agent right in your IDE, capable of creating/editing files, running commands, using the browser, and more with your permission every step of the way.",
     "version": "1.0.2",
+    "preview": true,
     "icon": "assets/icons/posthog-icon.png",
     "engines": {
         "vscode": "^1.84.0",
