@@ -1,8 +1,9 @@
 // type that represents json data that is sent from extension to webview, called ExtensionMessage and has 'type' enum which can be 'plusButtonClicked' or 'settingsButtonClicked' or 'hello'
 
 import { PostHogUsage } from '../analysis/codeAnalyzer'
+import { PostHogProject } from '../api/types'
 import { GitCommit } from '../utils/git'
-import { ApiConfiguration, ModelInfo } from './api'
+import { ApiConfiguration } from './api'
 import { AutoApprovalSettings } from './AutoApprovalSettings'
 import { BrowserSettings } from './BrowserSettings'
 import { ChatSettings } from './ChatSettings'
@@ -30,6 +31,7 @@ export interface ExtensionMessage {
         | 'totalTasksSize'
         | 'addToInput'
         | 'usageUpdated'
+        | 'posthogProjects'
     text?: string
     action?:
         | 'chatButtonClicked'
@@ -59,6 +61,7 @@ export interface ExtensionMessage {
     isImage?: boolean
     totalTasksSize?: number | null
     usage?: PostHogUsage[]
+    posthogProjects?: PostHogProject[]
 }
 
 export type Invoke = 'sendMessage' | 'primaryButtonClick' | 'secondaryButtonClick'
@@ -71,12 +74,11 @@ export interface ExtensionState {
     apiConfiguration?: ApiConfiguration
     autoApprovalSettings: AutoApprovalSettings
     browserSettings: BrowserSettings
-    chatSettings: ChatSettings
+    chatSettings?: ChatSettings
     checkpointTrackerErrorMessage?: string
     posthogMessages: PostHogMessage[]
     currentTaskItem?: HistoryItem
     customInstructions?: string
-    planActSeparateModelsSetting: boolean
     platform: Platform
     taskHistory: HistoryItem[]
     telemetrySetting: TelemetrySetting
@@ -156,11 +158,16 @@ export interface PostHogSayTool {
         | 'listFilesRecursive'
         | 'listCodeDefinitionNames'
         | 'searchFiles'
+        | 'createInsight'
+        | 'createFeatureFlag'
+        | 'updateFeatureFlag'
+        | 'listFeatureFlags'
     path?: string
     diff?: string
     content?: string
     regex?: string
     filePattern?: string
+    url?: string
 }
 
 // must keep in sync with system prompt

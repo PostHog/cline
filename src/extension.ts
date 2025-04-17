@@ -18,7 +18,7 @@ import {
     StatusBarStatus,
 } from './autocomplete/statusBar'
 import { PostHogApiProvider } from './api/provider'
-import { autocompleteDefaultModelId } from './shared/api'
+import { codestralDefaultModelId } from './shared/api'
 import { CodeAnalyzer } from './analysis/codeAnalyzer'
 import { debounce } from './utils/debounce'
 
@@ -160,7 +160,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 // Default to codestral
                 const state = await sidebarProvider.getState()
                 return new PostHogApiProvider(
-                    autocompleteDefaultModelId,
+                    codestralDefaultModelId,
                     state.apiConfiguration.posthogHost,
                     state.apiConfiguration.posthogApiKey
                 )

@@ -1,22 +1,34 @@
 import { Anthropic } from '@anthropic-ai/sdk'
 import { withExponentialBackoff } from './utils/fetch'
 import { ApiStreamChunk, streamSse } from './utils/stream'
-import { anthropicDefaultModelId, AnthropicModelId, anthropicModels, ModelInfo } from '../shared/api'
+import {
+    anthropicDefaultModelId,
+    AnthropicModelId,
+    anthropicModels,
+    GeminiModelId,
+    geminiModels,
+    ModelInfo,
+    OpenAIModelId,
+    openaiModels,
+} from '../shared/api'
+import { allModels } from '../shared/api'
 
 export class PostHogApiProvider {
     private apiBase: string
+    apiHost?: string
     apiKey?: string
     model: string
     thinking?: boolean
 
-    constructor(model: string, host?: string, apiKey?: string, thinking: boolean = false) {
+    constructor(model: keyof typeof allModels, host?: string, apiKey?: string, thinking: boolean = false) {
         this.apiKey = apiKey
         this.model = model
-        this.thinking = thinking
-        if (!host) {
-            host = 'us.posthog.com'
+        if (allModels[model]?.supportsExtendedThinking) {
+            // safeguard against using extended thinking on a model that doesn't support it
+            this.thinking = thinking
         }
-        this.apiBase = process.env.IS_DEV ? 'http://localhost:8010/api/llm_proxy/' : `https://${host}/api/llm_proxy/`
+        this.apiHost = host
+        this.apiBase = `${this.apiHost}/api/llm_proxy/`
     }
 
     async *stream(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): AsyncGenerator<ApiStreamChunk> {
@@ -98,9 +110,19 @@ export class PostHogApiProvider {
 
     getModel(): { id: string; info: ModelInfo } {
         const modelId = this.model
-        if (modelId && modelId in anthropicModels) {
-            const id = modelId as AnthropicModelId
-            return { id, info: anthropicModels[id] }
+        if (modelId) {
+            if (modelId in anthropicModels) {
+                const id = modelId as AnthropicModelId
+                return { id, info: anthropicModels[id] }
+            }
+            if (modelId in geminiModels) {
+                const id = modelId as GeminiModelId
+                return { id, info: geminiModels[id] }
+            }
+            if (modelId in openaiModels) {
+                const id = modelId as OpenAIModelId
+                return { id, info: openaiModels[id] }
+            }
         }
         return {
             id: anthropicDefaultModelId,

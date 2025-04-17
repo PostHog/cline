@@ -1,7 +1,20 @@
-export interface ChatSettings {
-    mode: 'plan' | 'act'
-}
+import { allModels, ApiProvider } from './api'
 
-export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
-    mode: 'act',
+export interface ChatSettings {
+    mode: 'ask' | 'plan' | 'act'
+    ask: {
+        apiProvider?: ApiProvider
+        apiModelId?: keyof typeof allModels
+        thinkingEnabled?: boolean
+    }
+    plan: {
+        apiProvider?: ApiProvider
+        apiModelId?: keyof typeof allModels
+        thinkingEnabled?: boolean
+    }
+    act: {
+        apiProvider?: ApiProvider
+        apiModelId?: keyof typeof allModels
+        thinkingEnabled?: boolean
+    }
 }
