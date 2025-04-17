@@ -143,7 +143,7 @@ export class MerkleTreeNode {
             if (isBinary) {
                 return null
             }
-            return createHash('sha256').update(new Uint8Array(fileContent)).digest('hex')
+            return createHash('sha256').update(fileContent).digest('hex')
         } catch (e) {
             return null
         }
