@@ -32,6 +32,10 @@ export interface ExtensionMessage {
         | 'addToInput'
         | 'usageUpdated'
         | 'posthogProjects'
+        | 'browserConnectionResult'
+        | 'browserConnectionInfo'
+        | 'detectedChromePath'
+        | 'browserRelaunchResult'
     text?: string
     action?:
         | 'chatButtonClicked'
@@ -62,6 +66,12 @@ export interface ExtensionMessage {
     totalTasksSize?: number | null
     usage?: PostHogUsage[]
     posthogProjects?: PostHogProject[]
+    success?: boolean
+    endpoint?: string
+    isBundled?: boolean
+    isConnected?: boolean
+    isRemote?: boolean
+    host?: string
 }
 
 export type Invoke = 'sendMessage' | 'primaryButtonClick' | 'secondaryButtonClick'
@@ -74,6 +84,7 @@ export interface ExtensionState {
     apiConfiguration?: ApiConfiguration
     autoApprovalSettings: AutoApprovalSettings
     browserSettings: BrowserSettings
+    remoteBrowserHost?: string
     chatSettings?: ChatSettings
     checkpointTrackerErrorMessage?: string
     posthogMessages: PostHogMessage[]
@@ -185,6 +196,12 @@ export type BrowserActionResult = {
     logs?: string
     currentUrl?: string
     currentMousePosition?: string
+}
+
+export interface BrowserConnectionInfo {
+    isConnected: boolean
+    isRemote: boolean
+    host?: string
 }
 
 export interface PostHogAskUseMcpServer {

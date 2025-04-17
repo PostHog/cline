@@ -180,10 +180,12 @@ export class PostHog {
 
         if (historyItem) {
             this.taskId = historyItem.id
+            this.browserSession.setTaskId(this.taskId)
             this.conversationHistoryDeletedRange = historyItem.conversationHistoryDeletedRange
             this.resumeTaskFromHistory()
         } else if (task || images) {
             this.taskId = Date.now().toString()
+            this.browserSession.setTaskId(this.taskId)
             this.startTask(task, images)
         } else {
             throw new Error('Either historyItem or task/images must be provided')
@@ -1116,7 +1118,7 @@ export class PostHog {
         this.abort = true // will stop any autonomously running promises
         this.terminalManager.disposeAll()
         this.urlContentFetcher.closeBrowser()
-        this.browserSession.closeBrowser()
+        await this.browserSession.dispose()
         this.posthogIgnoreController.dispose()
         await this.diffViewProvider.revertChanges() // need to await for when we want to make sure directories/files are reverted before re-starting the task from a checkpoint
     }
@@ -2724,6 +2726,15 @@ export class PostHog {
                                     // NOTE: it's okay that we call this message since the partial inspect_site is finished streaming. The only scenario we have to avoid is sending messages WHILE a partial message exists at the end of the messages array. For example the api_req_finished message would interfere with the partial message, so we needed to remove that.
                                     // await this.say("inspect_site_result", "") // no result, starts the loading spinner waiting for result
                                     await this.say('browser_action_result', '') // starts loading spinner
+
+                                    // Re-make browserSession to make sure latest settings apply
+                                    const localContext = this.providerRef.deref()?.context
+                                    if (localContext) {
+                                        await this.browserSession.dispose()
+                                        this.browserSession = new BrowserSession(localContext, this.browserSettings)
+                                    } else {
+                                        console.warn('no controller context available for browserSession')
+                                    }
 
                                     await this.browserSession.launchBrowser()
                                     browserActionResult = await this.browserSession.navigateToUrl(url)

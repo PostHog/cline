@@ -10,6 +10,7 @@ import AutocompleteOptions from './AutocompleteOptions'
 import AutoApproveMenu from './AutoApproveMenu'
 import { getAsVar, VSC_TITLEBAR_INACTIVE_FOREGROUND } from '../../utils/vscStyles'
 import PostHogConfigOptions from './PostHogConfigOptions'
+import BrowserSettingsSection, { BrowserSettingsOptions } from './BrowserSettingsOptions'
 const { IS_DEV } = process.env
 
 type SettingsTab = 'privacy' | 'rules' | 'api' | 'general' | 'advanced'
@@ -253,6 +254,7 @@ const SettingsView = () => {
                 }}
             />
             <AutocompleteOptions />
+            <BrowserSettingsOptions />
         </>
     )
 

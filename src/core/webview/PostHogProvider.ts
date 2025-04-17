@@ -47,6 +47,8 @@ import { getStatusBarStatus, setupStatusBar, StatusBarStatus } from '../../autoc
 import { PostHogApiProvider } from '../../api/provider'
 import { PostHogClient } from '../../api/posthogClient'
 import { getHost } from '../../api/utils/host'
+import { BrowserSession } from '../../services/browser/BrowserSession'
+import { discoverChromeInstances } from '../../services/browser/BrowserDiscovery'
 /*
 https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
 
@@ -581,6 +583,124 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
                             await this.postStateToWebview()
                         }
                         break
+
+                    case 'getBrowserConnectionInfo':
+                        try {
+                            // Get the current browser session from PostHog if it exists
+                            if (this.posthog?.browserSession) {
+                                const connectionInfo = this.posthog.browserSession.getConnectionInfo()
+                                await this.postMessageToWebview({
+                                    type: 'browserConnectionInfo',
+                                    isConnected: connectionInfo.isConnected,
+                                    isRemote: connectionInfo.isRemote,
+                                    host: connectionInfo.host,
+                                })
+                            } else {
+                                // If no active browser session, just return the settings
+                                const { browserSettings } = await this.getState()
+                                await this.postMessageToWebview({
+                                    type: 'browserConnectionInfo',
+                                    isConnected: false,
+                                    isRemote: !!browserSettings.remoteBrowserEnabled,
+                                    host: browserSettings.remoteBrowserHost,
+                                })
+                            }
+                        } catch (error) {
+                            console.error('Error getting browser connection info:', error)
+                            await this.postMessageToWebview({
+                                type: 'browserConnectionInfo',
+                                isConnected: false,
+                                isRemote: false,
+                            })
+                        }
+                        break
+                    case 'testBrowserConnection':
+                        try {
+                            const { browserSettings } = await this.getState()
+                            const browserSession = new BrowserSession(this.context, browserSettings)
+                            // If no text is provided, try auto-discovery
+                            if (!message.text) {
+                                try {
+                                    const discoveredHost = await discoverChromeInstances()
+                                    if (discoveredHost) {
+                                        // Test the connection to the discovered host
+                                        const result = await browserSession.testConnection(discoveredHost)
+                                        // Send the result back to the webview
+                                        await this.postMessageToWebview({
+                                            type: 'browserConnectionResult',
+                                            success: result.success,
+                                            text: `Auto-discovered and tested connection to Chrome at ${discoveredHost}: ${result.message}`,
+                                            endpoint: result.endpoint,
+                                        })
+                                    } else {
+                                        await this.postMessageToWebview({
+                                            type: 'browserConnectionResult',
+                                            success: false,
+                                            text: 'No Chrome instances found on the network. Make sure Chrome is running with remote debugging enabled (--remote-debugging-port=9222).',
+                                        })
+                                    }
+                                } catch (error) {
+                                    await this.postMessageToWebview({
+                                        type: 'browserConnectionResult',
+                                        success: false,
+                                        text: `Error during auto-discovery: ${error instanceof Error ? error.message : String(error)}`,
+                                    })
+                                }
+                            } else {
+                                // Test the provided URL
+                                const result = await browserSession.testConnection(message.text)
+
+                                // Send the result back to the webview
+                                await this.postMessageToWebview({
+                                    type: 'browserConnectionResult',
+                                    success: result.success,
+                                    text: result.message,
+                                    endpoint: result.endpoint,
+                                })
+                            }
+                        } catch (error) {
+                            await this.postMessageToWebview({
+                                type: 'browserConnectionResult',
+                                success: false,
+                                text: `Error testing connection: ${error instanceof Error ? error.message : String(error)}`,
+                            })
+                        }
+                        break
+                    case 'discoverBrowser':
+                        try {
+                            const discoveredHost = await discoverChromeInstances()
+
+                            if (discoveredHost) {
+                                // Don't update the remoteBrowserHost state when auto-discovering
+                                // This way we don't override the user's preference
+
+                                // Test the connection to get the endpoint
+                                const { browserSettings } = await this.getState()
+                                const browserSession = new BrowserSession(this.context, browserSettings)
+                                const result = await browserSession.testConnection(discoveredHost)
+
+                                // Send the result back to the webview
+                                await this.postMessageToWebview({
+                                    type: 'browserConnectionResult',
+                                    success: true,
+                                    text: `Successfully discovered and connected to Chrome at ${discoveredHost}`,
+                                    endpoint: result.endpoint,
+                                })
+                            } else {
+                                await this.postMessageToWebview({
+                                    type: 'browserConnectionResult',
+                                    success: false,
+                                    text: 'No Chrome instances found on the network. Make sure Chrome is running with remote debugging enabled (--remote-debugging-port=9222).',
+                                })
+                            }
+                        } catch (error) {
+                            await this.postMessageToWebview({
+                                type: 'browserConnectionResult',
+                                success: false,
+                                text: `Error discovering browser: ${error instanceof Error ? error.message : String(error)}`,
+                            })
+                        }
+                        break
                     case 'toggleChatMode':
                         if (message.chatMode) {
                             await this.toggleChatMode(message.chatMode, message.chatContent)
@@ -593,11 +713,11 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
                             text: message.text,
                         })
                         break
-                    // case "relaunchChromeDebugMode":
-                    // 	if (this.posthog) {
-                    // 		this.posthog.browserSession.relaunchChromeDebugMode()
-                    // 	}
-                    // 	break
+                    case 'relaunchChromeDebugMode':
+                        const { browserSettings } = await this.getState()
+                        const browserSession = new BrowserSession(this.context, browserSettings)
+                        await browserSession.relaunchChromeDebugMode(this)
+                        break
                     case 'askResponse':
                         this.posthog?.handleWebviewAskResponse(message.askResponse!, message.text, message.images)
                         break
@@ -1489,7 +1609,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
             customInstructions,
             taskHistory,
             autoApprovalSettings: autoApprovalSettings || DEFAULT_AUTO_APPROVAL_SETTINGS, // default value can be 0 or empty string
-            browserSettings: browserSettings || DEFAULT_BROWSER_SETTINGS,
+            browserSettings: { ...DEFAULT_BROWSER_SETTINGS, ...browserSettings },
             chatSettings,
             userInfo,
             telemetrySetting: telemetrySetting || 'unset',

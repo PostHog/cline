@@ -36,6 +36,12 @@ class PostHogTelemetryClient {
             AUTOCOMPLETE_ENABLED: 'task.autocomplete_enabled',
             // Tracks when autocomplete is used
             AUTOCOMPLETE: 'task.autocomplete',
+            // Tracks when the browser tool is started
+            BROWSER_TOOL_START: 'task.browser_tool_start',
+            // Tracks when the browser tool is completed
+            BROWSER_TOOL_END: 'task.browser_tool_end',
+            // Tracks when browser errors occur
+            BROWSER_ERROR: 'task.browser_error',
         },
         // UI interaction events for tracking user engagement
         UI: {
@@ -55,6 +61,12 @@ class PostHogTelemetryClient {
             MODEL_SELECTED: 'ui.model_selected',
             // Tracks when the autocomplete config menu is opened
             OPEN_TAB_AUTOCOMPLETE_CONFIG_MENU: 'ui.open_tab_autocomplete_config_menu',
+            // Tracks when the browser tool is started
+            BROWSER_TOOL_START: 'task.browser_tool_start',
+            // Tracks when the browser tool is completed
+            BROWSER_TOOL_END: 'task.browser_tool_end',
+            // Tracks when browser errors occur
+            BROWSER_ERROR: 'task.browser_error',
         },
     }
 
@@ -418,6 +430,79 @@ class PostHogTelemetryClient {
         this.capture({
             event: PostHogTelemetryClient.EVENTS.TASK.AUTOCOMPLETE,
             properties,
+        })
+    }
+
+    /**
+     * Records when the browser tool is started
+     * @param taskId Unique identifier for the task
+     * @param browserSettings The browser settings being used
+     */
+    public captureBrowserToolStart(taskId: string, browserSettings: any) {
+        this.capture({
+            event: PostHogTelemetryClient.EVENTS.TASK.BROWSER_TOOL_START,
+            properties: {
+                taskId,
+                viewport: browserSettings.viewport,
+                isRemote: !!browserSettings.remoteBrowserEnabled,
+                remoteBrowserHost: browserSettings.remoteBrowserHost,
+                timestamp: new Date().toISOString(),
+            },
+        })
+    }
+
+    /**
+     * Records when the browser tool is completed
+     * @param taskId Unique identifier for the task
+     * @param stats Statistics about the browser session
+     */
+    public captureBrowserToolEnd(
+        taskId: string,
+        stats: {
+            actionCount: number
+            duration: number
+            actions?: string[]
+        }
+    ) {
+        this.capture({
+            event: PostHogTelemetryClient.EVENTS.TASK.BROWSER_TOOL_END,
+            properties: {
+                taskId,
+                actionCount: stats.actionCount,
+                duration: stats.duration,
+                actions: stats.actions,
+                timestamp: new Date().toISOString(),
+            },
+        })
+    }
+
+    /**
+     * Records when browser errors occur during a task
+     * @param taskId Unique identifier for the task
+     * @param errorType Type of error that occurred (e.g., "launch_error", "connection_error", "navigation_error")
+     * @param errorMessage The error message
+     * @param context Additional context about where the error occurred
+     */
+    public captureBrowserError(
+        taskId: string,
+        errorType: string,
+        errorMessage: string,
+        context?: {
+            action?: string
+            url?: string
+            isRemote?: boolean
+            [key: string]: any
+        }
+    ) {
+        this.capture({
+            event: PostHogTelemetryClient.EVENTS.TASK.BROWSER_ERROR,
+            properties: {
+                taskId,
+                errorType,
+                errorMessage,
+                context,
+                timestamp: new Date().toISOString(),
+            },
         })
     }
 
