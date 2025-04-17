@@ -281,7 +281,7 @@
         "@types/chai": "^5.0.1",
         "@types/diff": "^5.2.1",
         "@types/mocha": "^10.0.7",
-        "@types/node": "20.x",
+        "@types/node": "^20.17.30",
         "@types/should": "^11.2.0",
         "@types/sinon": "^17.0.4",
         "@types/vscode": "^1.84.0",
