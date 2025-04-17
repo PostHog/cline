@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom'
+
 import { vi } from 'vitest'
 
 // "Official" jest workaround for mocking window.matchMedia()

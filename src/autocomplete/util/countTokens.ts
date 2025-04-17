@@ -1,4 +1,4 @@
-import { Tiktoken, encodingForModel } from 'js-tiktoken'
+import { encodingForModel, Tiktoken } from 'js-tiktoken'
 
 interface Encoding {
     encode: Tiktoken['encode']

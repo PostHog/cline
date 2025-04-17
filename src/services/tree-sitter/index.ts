@@ -1,9 +1,10 @@
 import * as fs from 'fs/promises'
 import * as path from 'path'
+
+import { PostHogIgnoreController } from '../../core/ignore/PostHogIgnoreController'
+import { fileExistsAtPath } from '../../utils/fs'
 import { listFiles } from '../glob/list-files'
 import { LanguageParser, loadRequiredLanguageParsers } from './languageParser'
-import { fileExistsAtPath } from '../../utils/fs'
-import { PostHogIgnoreController } from '../../core/ignore/PostHogIgnoreController'
 
 // TODO: implement caching behavior to avoid having to keep analyzing project for new tasks.
 export async function parseSourceCodeForDefinitionsTopLevel(

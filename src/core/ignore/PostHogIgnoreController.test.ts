@@ -1,8 +1,10 @@
-import fs from 'fs/promises'
-import path from 'path'
-import os from 'os'
-import { after, beforeEach, describe, it } from 'mocha'
 import 'should'
+
+import fs from 'fs/promises'
+import { after, beforeEach, describe, it } from 'mocha'
+import os from 'os'
+import path from 'path'
+
 import { PostHogIgnoreController } from './PostHogIgnoreController'
 
 describe('PostHogIgnoreController', () => {

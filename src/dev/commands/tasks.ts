@@ -1,9 +1,10 @@
-import * as vscode from 'vscode'
 import * as fs from 'fs/promises'
 import * as path from 'path'
-import { HistoryItem } from '../../shared/HistoryItem'
-import { PostHogMessage } from '../../shared/ExtensionMessage'
+import * as vscode from 'vscode'
+
 import { PostHogProvider } from '../../core/webview/PostHogProvider'
+import { PostHogMessage } from '../../shared/ExtensionMessage'
+import { HistoryItem } from '../../shared/HistoryItem'
 
 /**
  * Registers development-only commands for task manipulation.

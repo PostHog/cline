@@ -1,4 +1,3 @@
-import type { BaseTool } from './base/BaseTool'
 import { CreateFeatureFlagTool } from './posthog/feature-flags/CreateFeatureFlagTool'
 import { ListFeatureFlagsTool } from './posthog/feature-flags/ListFeatureFlagsTool'
 import { UpdateFeatureFlagTool } from './posthog/feature-flags/UpdateFeatureFlagTool'

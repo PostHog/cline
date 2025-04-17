@@ -1,7 +1,7 @@
 import { mkdir } from 'fs/promises'
+import os from 'os'
 import * as path from 'path'
 import * as vscode from 'vscode'
-import os from 'os'
 
 /**
  * Gets the path to the shadow Git repository in globalStorage.

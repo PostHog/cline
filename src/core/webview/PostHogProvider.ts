@@ -1,26 +1,33 @@
+import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
+
 import { Anthropic } from '@anthropic-ai/sdk'
 import axios from 'axios'
-import crypto from 'crypto'
 import { execa } from 'execa'
 import fs from 'fs/promises'
 import os from 'os'
 import pWaitFor from 'p-wait-for'
 import * as path from 'path'
 import * as vscode from 'vscode'
-import { openFile, openImage } from '../../integrations/misc/open-file'
+
+import { PostHogClient } from '../../api/posthogClient'
+import { PostHogApiProvider } from '../../api/provider'
+import { getHost } from '../../api/utils/host'
+import { setupStatusBar, StatusBarStatus } from '../../autocomplete/statusBar'
+import { GlobalFileNames } from '../../global-constants'
+import { cleanupLegacyCheckpoints } from '../../integrations/checkpoints/CheckpointMigration'
 import { fetchOpenGraphData, isImageUrl } from '../../integrations/misc/link-preview'
+import { openFile, openImage } from '../../integrations/misc/open-file'
 import { selectImages } from '../../integrations/misc/process-images'
 import { getTheme } from '../../integrations/theme/getTheme'
 import WorkspaceTracker from '../../integrations/workspace/WorkspaceTracker'
 import { McpHub } from '../../services/mcp/McpHub'
-import { UserInfo } from '../../shared/UserInfo'
+import { telemetryService } from '../../services/telemetry/TelemetryService'
 import {
     allModels,
     anthropicDefaultModelId,
     ApiConfiguration,
     ApiProvider,
     CompletionApiProvider,
-    ModelInfo,
 } from '../../shared/api'
 import { findLast } from '../../shared/array'
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '../../shared/AutoApprovalSettings'
@@ -29,24 +36,16 @@ import { ChatContent } from '../../shared/ChatContent'
 import { ChatSettings } from '../../shared/ChatSettings'
 import { ExtensionMessage, ExtensionState, Invoke, Platform } from '../../shared/ExtensionMessage'
 import { HistoryItem } from '../../shared/HistoryItem'
+import { TelemetrySetting } from '../../shared/TelemetrySetting'
+import { UserInfo } from '../../shared/UserInfo'
 import { PostHogCheckpointRestore, WebviewMessage } from '../../shared/WebviewMessage'
 import { fileExistsAtPath } from '../../utils/fs'
 import { searchCommits } from '../../utils/git'
-import { PostHog } from '../PostHog'
+import { getTotalTasksSize } from '../../utils/storage'
 import { openMention } from '../mentions'
+import { PostHog } from '../PostHog'
 import { getNonce } from './getNonce'
 import { getUri } from './getUri'
-import { telemetryService } from '../../services/telemetry/TelemetryService'
-import { TelemetrySetting } from '../../shared/TelemetrySetting'
-import { cleanupLegacyCheckpoints } from '../../integrations/checkpoints/CheckpointMigration'
-import CheckpointTracker from '../../integrations/checkpoints/CheckpointTracker'
-import { getTotalTasksSize } from '../../utils/storage'
-import { GlobalFileNames } from '../../global-constants'
-import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
-import { getStatusBarStatus, setupStatusBar, StatusBarStatus } from '../../autocomplete/statusBar'
-import { PostHogApiProvider } from '../../api/provider'
-import { PostHogClient } from '../../api/posthogClient'
-import { getHost } from '../../api/utils/host'
 /*
 https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
 

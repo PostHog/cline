@@ -1,6 +1,7 @@
 import { Mutex } from 'async-mutex'
-import { DatabaseService } from '../../services/database/DatabaseService.js'
 import * as vscode from 'vscode'
+
+import { DatabaseService } from '../../services/database/DatabaseService.js'
 
 const SQLITE_MAX_LIKE_PATTERN_LENGTH = 50000
 

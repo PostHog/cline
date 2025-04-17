@@ -1,8 +1,9 @@
 import { z } from 'zod'
-import { ToolInputValidationError, ToolOutputValidationError } from './errors'
+
+import type { PostHogSayTool } from '../../../shared/ExtensionMessage'
 import type { ToolUse } from '../../assistant-message'
 import type { ToolInput, ToolOutput } from '../types'
-import type { PostHogSayTool } from '../../../shared/ExtensionMessage'
+import { ToolInputValidationError, ToolOutputValidationError } from './errors'
 
 export abstract class BaseTool<TInput, TOutput> {
     abstract autoApprove: boolean

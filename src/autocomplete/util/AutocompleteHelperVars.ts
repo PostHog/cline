@@ -1,10 +1,9 @@
-import { countTokens, pruneLinesFromBottom, pruneLinesFromTop, pruneWithBinarySearch } from './countTokens'
 import { getWorkspaceDirs, readFile } from '../../utils/vscode'
 import { AutocompleteLanguageInfo, languageForFilepath } from '../constants/AutocompleteLanguageInfo'
 import { constructInitialPrefixSuffix } from '../templating/constructPrefixSuffix'
 import { AutocompleteInput, TabAutocompleteOptions } from '../types'
-
 import { AstPath, getAst, getTreePathAtCursor } from './ast'
+import { countTokens, pruneWithBinarySearch } from './countTokens'
 
 /**
  * A collection of variables that are often accessed throughout the autocomplete pipeline
