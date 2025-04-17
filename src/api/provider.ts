@@ -2,21 +2,24 @@ import { Anthropic } from '@anthropic-ai/sdk'
 import { withExponentialBackoff } from './utils/fetch'
 import { ApiStreamChunk, streamSse } from './utils/stream'
 import { anthropicDefaultModelId, AnthropicModelId, anthropicModels, ModelInfo } from '../shared/api'
+import { allModels } from '../shared/api'
 
 export class PostHogApiProvider {
     private apiBase: string
+    apiHost?: string
     apiKey?: string
     model: string
     thinking?: boolean
 
-    constructor(model: string, host?: string, apiKey?: string, thinking: boolean = false) {
+    constructor(model: keyof typeof allModels, host?: string, apiKey?: string, thinking: boolean = false) {
         this.apiKey = apiKey
         this.model = model
-        this.thinking = thinking
-        if (!host) {
-            host = 'us.posthog.com'
+        if (allModels[model]?.supportsExtendedThinking) {
+            // safeguard against using extended thinking on a model that doesn't support it
+            this.thinking = thinking
         }
-        this.apiBase = process.env.IS_DEV ? 'http://localhost:8010/api/llm_proxy/' : `https://${host}/api/llm_proxy/`
+        this.apiHost = host
+        this.apiBase = `${this.apiHost}/api/llm_proxy/`
     }
 
     async *stream(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): AsyncGenerator<ApiStreamChunk> {

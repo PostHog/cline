@@ -15,6 +15,7 @@ import WorkspaceTracker from '../../integrations/workspace/WorkspaceTracker'
 import { McpHub } from '../../services/mcp/McpHub'
 import { UserInfo } from '../../shared/UserInfo'
 import {
+    allModels,
     anthropicDefaultModelId,
     ApiConfiguration,
     ApiProvider,
@@ -25,7 +26,7 @@ import { findLast } from '../../shared/array'
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '../../shared/AutoApprovalSettings'
 import { BrowserSettings, DEFAULT_BROWSER_SETTINGS } from '../../shared/BrowserSettings'
 import { ChatContent } from '../../shared/ChatContent'
-import { ChatSettings, DEFAULT_CHAT_SETTINGS } from '../../shared/ChatSettings'
+import { ChatSettings } from '../../shared/ChatSettings'
 import { ExtensionMessage, ExtensionState, Invoke, Platform } from '../../shared/ExtensionMessage'
 import { HistoryItem } from '../../shared/HistoryItem'
 import { PostHogCheckpointRestore, WebviewMessage } from '../../shared/WebviewMessage'
@@ -44,6 +45,8 @@ import { GlobalFileNames } from '../../global-constants'
 import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
 import { getStatusBarStatus, setupStatusBar, StatusBarStatus } from '../../autocomplete/statusBar'
 import { PostHogApiProvider } from '../../api/provider'
+import { PostHogClient } from '../../api/posthogClient'
+import { getHost } from '../../api/utils/host'
 /*
 https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
 
@@ -61,20 +64,17 @@ type GlobalStateKey =
     | 'browserSettings'
     | 'chatSettings'
     | 'userInfo'
-    | 'previousModeApiProvider'
-    | 'previousModeModelId'
-    | 'previousModeThinkingEnabled'
-    | 'previousModeModelInfo'
     | 'telemetrySetting'
     | 'thinkingEnabled'
-    | 'planActSeparateModelsSetting'
     | 'enableTabAutocomplete'
     | 'posthogHost'
+    | 'posthogProjectId'
 export class PostHogProvider implements vscode.WebviewViewProvider {
     public static readonly sideBarId = 'posthog.SidebarProvider' // used in package.json as the view's id. This value cannot be changed due to how vscode caches views based on their id, and updating the id would break existing instances of the extension.
     public static readonly tabPanelId = 'posthog.TabPanelProvider'
     private static activeInstances: Set<PostHogProvider> = new Set()
     private disposables: vscode.Disposable[] = []
+    private activeWebviews: Set<vscode.WebviewView | vscode.WebviewPanel> = new Set()
     private view?: vscode.WebviewView | vscode.WebviewPanel
     private posthog?: PostHog
     workspaceTracker?: WorkspaceTracker
@@ -104,9 +104,11 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
         this.outputChannel.appendLine('Disposing PostHogProvider...')
         await this.clearTask()
         this.outputChannel.appendLine('Cleared task')
-        if (this.view && 'dispose' in this.view) {
-            this.view.dispose()
-            this.outputChannel.appendLine('Disposed webview')
+        for (const view of this.activeWebviews) {
+            if ('dispose' in view) {
+                view.dispose()
+                this.outputChannel.appendLine('Disposed webview')
+            }
         }
         while (this.disposables.length) {
             const x = this.disposables.pop()
@@ -142,6 +144,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
     }
 
     async resolveWebviewView(webviewView: vscode.WebviewView | vscode.WebviewPanel) {
+        this.activeWebviews.add(webviewView)
         this.outputChannel.appendLine('Resolving webview view')
         this.view = webviewView
 
@@ -170,7 +173,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
             // panel
             webviewView.onDidChangeViewState(
                 () => {
-                    if (this.view?.visible) {
+                    if (webviewView.visible) {
                         this.postMessageToWebview({
                             type: 'action',
                             action: 'didBecomeVisible',
@@ -184,7 +187,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
             // sidebar
             webviewView.onDidChangeVisibility(
                 () => {
-                    if (this.view?.visible) {
+                    if (webviewView.visible) {
                         this.postMessageToWebview({
                             type: 'action',
                             action: 'didBecomeVisible',
@@ -200,6 +203,10 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
         // This happens when the user closes the view or when the view is closed programmatically
         webviewView.onDidDispose(
             async () => {
+                this.activeWebviews.delete(webviewView)
+                if (this.view === webviewView) {
+                    this.view = undefined
+                }
                 await this.dispose()
             },
             null,
@@ -228,6 +235,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
     }
     async resolveSettingsWebviewView(webviewView: vscode.WebviewView | vscode.WebviewPanel) {
         this.outputChannel.appendLine('Resolving webview view')
+        this.activeWebviews.add(webviewView)
         this.view = webviewView
 
         webviewView.webview.options = {
@@ -255,7 +263,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
             // panel
             webviewView.onDidChangeViewState(
                 () => {
-                    if (this.view?.visible) {
+                    if (webviewView.visible) {
                         this.postMessageToWebview({
                             type: 'action',
                             action: 'didBecomeVisible',
@@ -274,7 +282,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
             // sidebar
             webviewView.onDidChangeVisibility(
                 () => {
-                    if (this.view?.visible) {
+                    if (webviewView.visible) {
                         this.postMessageToWebview({
                             type: 'action',
                             action: 'didBecomeVisible',
@@ -363,7 +371,9 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
 
     // Send any JSON serializable data to the react app
     async postMessageToWebview(message: ExtensionMessage) {
-        await this.view?.webview.postMessage(message)
+        for (const view of this.activeWebviews) {
+            await view.webview.postMessage(message)
+        }
     }
 
     /**
@@ -553,12 +563,6 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
                         // initializing new instance of PostHog will make sure that any agentically running promises in old instance don't affect our new task. this essentially creates a fresh slate for the new task
                         await this.initPostHogWithTask(message.text, message.images)
                         break
-                    case 'apiConfiguration':
-                        if (message.apiConfiguration) {
-                            await this.updateApiConfiguration(message.apiConfiguration)
-                        }
-                        await this.postStateToWebview()
-                        break
                     case 'autoApprovalSettings':
                         if (message.autoApprovalSettings) {
                             await this.updateGlobalState('autoApprovalSettings', message.autoApprovalSettings)
@@ -577,9 +581,9 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
                             await this.postStateToWebview()
                         }
                         break
-                    case 'togglePlanActMode':
-                        if (message.chatSettings) {
-                            await this.togglePlanActModeWithChatSettings(message.chatSettings, message.chatContent)
+                    case 'toggleChatMode':
+                        if (message.chatMode) {
+                            await this.toggleChatMode(message.chatMode, message.chatContent)
                         }
                         break
                     case 'optionsResponse':
@@ -803,11 +807,9 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
                             await this.toggleEnableTabAutocomplete(message.enableTabAutocomplete)
                         }
 
-                        // plan act setting
-                        await this.updateGlobalState(
-                            'planActSeparateModelsSetting',
-                            message.planActSeparateModelsSetting
-                        )
+                        if (message.chatSettings) {
+                            await this.updateChatSettings(message.chatSettings)
+                        }
 
                         // after settings are updated, post state to webview
                         await this.postStateToWebview()
@@ -839,6 +841,19 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
                         }
                         break
                     }
+                    case 'loadPosthogProjects': {
+                        const { apiConfiguration } = await this.getState()
+                        const posthogClient = new PostHogClient(
+                            getHost(apiConfiguration),
+                            apiConfiguration.posthogApiKey
+                        )
+                        const projects = await posthogClient.listProjects()
+                        await this.postMessageToWebview({
+                            type: 'posthogProjects',
+                            posthogProjects: projects,
+                        })
+                        break
+                    }
                 }
             },
             null,
@@ -863,57 +878,33 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
         }
     }
 
-    async togglePlanActModeWithChatSettings(chatSettings: ChatSettings, chatContent?: ChatContent) {
-        const didSwitchToActMode = chatSettings.mode === 'act'
+    async toggleChatMode(mode: ChatSettings['mode'], chatContent?: ChatContent) {
+        const didSwitchToActMode = mode === 'act'
 
         // Capture mode switch telemetry | Capture regardless of if we know the taskId
-        telemetryService.captureModeSwitch(this.posthog?.taskId ?? '0', chatSettings.mode)
+        telemetryService.captureModeSwitch(this.posthog?.taskId ?? '0', mode)
 
-        // Get previous model info that we will revert to after saving current mode api info
-        const {
-            apiConfiguration,
-            previousModeApiProvider: newApiProvider,
-            previousModeModelId: newModelId,
-            previousModeModelInfo: newModelInfo,
-            previousModeThinkingEnabled: thinkingEnabled,
-            planActSeparateModelsSetting,
-        } = await this.getState()
+        const { chatSettings } = await this.getState()
 
-        const shouldSwitchModel = planActSeparateModelsSetting === true
+        const currentModeChatSettings = chatSettings[mode]
+        this.updateGlobalState('apiProvider', currentModeChatSettings.apiProvider)
+        this.updateGlobalState('apiModelId', currentModeChatSettings.apiModelId)
+        this.updateGlobalState('thinkingEnabled', currentModeChatSettings.thinkingEnabled)
 
-        if (shouldSwitchModel) {
-            // Save the last model used in this mode
-            await this.updateGlobalState('previousModeApiProvider', apiConfiguration.apiProvider)
-            await this.updateGlobalState('previousModeThinkingEnabled', apiConfiguration.thinkingEnabled)
-            switch (apiConfiguration.apiProvider) {
-                case 'anthropic':
-                    await this.updateGlobalState('previousModeModelId', apiConfiguration.apiModelId)
-                    break
-            }
-
-            // Restore the model used in previous mode
-            if (newApiProvider || newModelId || thinkingEnabled !== undefined) {
-                await this.updateGlobalState('apiProvider', newApiProvider)
-                await this.updateGlobalState('thinkingEnabled', thinkingEnabled)
-                switch (newApiProvider) {
-                    case 'anthropic':
-                        await this.updateGlobalState('apiModelId', newModelId)
-                        break
-                }
-
-                if (this.posthog) {
-                    const { apiConfiguration: updatedApiConfiguration } = await this.getState()
-                    this.posthog.api = new PostHogApiProvider(
-                        updatedApiConfiguration.apiModelId,
-                        updatedApiConfiguration.posthogHost,
-                        updatedApiConfiguration.posthogApiKey,
-                        updatedApiConfiguration.thinkingEnabled
-                    )
-                }
-            }
+        if (this.posthog) {
+            const { apiConfiguration: updatedApiConfiguration } = await this.getState()
+            this.posthog.api = new PostHogApiProvider(
+                updatedApiConfiguration.apiModelId,
+                updatedApiConfiguration.posthogHost,
+                updatedApiConfiguration.posthogApiKey,
+                updatedApiConfiguration.thinkingEnabled
+            )
         }
 
-        await this.updateGlobalState('chatSettings', chatSettings)
+        await this.updateGlobalState('chatSettings', {
+            ...chatSettings,
+            mode,
+        })
         await this.postStateToWebview()
 
         if (this.posthog) {
@@ -971,7 +962,8 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
     }
 
     async updateApiConfiguration(apiConfiguration: ApiConfiguration) {
-        const { apiProvider, apiModelId, posthogApiKey, thinkingEnabled, posthogHost } = apiConfiguration
+        const { apiProvider, apiModelId, posthogApiKey, thinkingEnabled, posthogHost, posthogProjectId } =
+            apiConfiguration
         if (apiProvider) {
             await this.updateGlobalState('apiProvider', apiProvider)
         }
@@ -987,13 +979,24 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
         if (thinkingEnabled !== undefined) {
             await this.updateGlobalState('thinkingEnabled', thinkingEnabled)
         }
+        if (posthogProjectId) {
+            await this.updateGlobalState('posthogProjectId', posthogProjectId)
+        }
         const { apiConfiguration: updatedApiConfiguration } = await this.getState()
         if (this.posthog) {
             this.posthog.api = new PostHogApiProvider(
                 updatedApiConfiguration.apiModelId,
                 updatedApiConfiguration.posthogHost,
-                updatedApiConfiguration.posthogApiKey
+                updatedApiConfiguration.posthogApiKey,
+                updatedApiConfiguration.thinkingEnabled
             )
+        }
+    }
+
+    async updateChatSettings(chatSettings: ChatSettings) {
+        await this.updateGlobalState('chatSettings', chatSettings)
+        if (this.posthog) {
+            this.posthog.updateChatSettings(chatSettings)
         }
     }
 
@@ -1283,7 +1286,11 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
 
     async postStateToWebview() {
         const state = await this.getStateToPostToWebview()
-        this.postMessageToWebview({ type: 'state', state })
+        for (const instance of PostHogProvider.activeInstances) {
+            for (const view of instance.activeWebviews) {
+                await view.webview.postMessage({ type: 'state', state })
+            }
+        }
     }
 
     async getStateToPostToWebview(): Promise<ExtensionState> {
@@ -1296,7 +1303,6 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
             chatSettings,
             userInfo,
             telemetrySetting,
-            planActSeparateModelsSetting,
             enableTabAutocomplete,
         } = await this.getState()
 
@@ -1320,7 +1326,6 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
             chatSettings,
             userInfo,
             telemetrySetting,
-            planActSeparateModelsSetting,
             vscMachineId: vscode.env.machineId,
             enableTabAutocomplete: enableTabAutocomplete ?? false,
         }
@@ -1387,17 +1392,13 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
             taskHistory,
             autoApprovalSettings,
             browserSettings,
-            chatSettings,
+            storedChatSettings,
             userInfo,
-            previousModeApiProvider,
-            previousModeModelId,
-            previousModeModelInfo,
-            previousModeThinkingEnabled,
             telemetrySetting,
             thinkingEnabled,
-            planActSeparateModelsSettingRaw,
             enableTabAutocomplete,
-            storedPosthogHost,
+            storedPostHogHost,
+            posthogProjectId,
         ] = await Promise.all([
             this.getGlobalState('apiProvider') as Promise<ApiProvider | undefined>,
             this.getGlobalState('completionApiProvider') as Promise<CompletionApiProvider | undefined>,
@@ -1409,15 +1410,11 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
             this.getGlobalState('browserSettings') as Promise<BrowserSettings | undefined>,
             this.getGlobalState('chatSettings') as Promise<ChatSettings | undefined>,
             this.getGlobalState('userInfo') as Promise<UserInfo | undefined>,
-            this.getGlobalState('previousModeApiProvider') as Promise<ApiProvider | undefined>,
-            this.getGlobalState('previousModeModelId') as Promise<string | undefined>,
-            this.getGlobalState('previousModeModelInfo') as Promise<ModelInfo | undefined>,
-            this.getGlobalState('previousModeThinkingEnabled') as Promise<boolean | undefined>,
             this.getGlobalState('telemetrySetting') as Promise<TelemetrySetting | undefined>,
             this.getGlobalState('thinkingEnabled') as Promise<boolean | undefined>,
-            this.getGlobalState('planActSeparateModelsSetting') as Promise<boolean | undefined>,
             this.getGlobalState('enableTabAutocomplete') as Promise<boolean | undefined>,
             this.getGlobalState('posthogHost') as Promise<string | undefined>,
+            this.getGlobalState('posthogProjectId') as Promise<string | undefined>,
         ])
 
         let apiProvider: ApiProvider
@@ -1427,9 +1424,9 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
             // Either new user or legacy user that doesn't have the apiProvider stored in state
             apiProvider = 'anthropic'
         }
-        let apiModelId: string
+        let apiModelId: keyof typeof allModels
         if (storedApiModelId) {
-            apiModelId = storedApiModelId
+            apiModelId = storedApiModelId as keyof typeof allModels
         } else {
             apiModelId = anthropicDefaultModelId
         }
@@ -1440,28 +1437,43 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
             completionApiProvider = 'codestral'
         }
         let posthogHost: string
-        if (storedPosthogHost) {
-            posthogHost = storedPosthogHost
+        if (storedPostHogHost) {
+            posthogHost = storedPostHogHost
         } else {
             posthogHost = 'https://us.posthog.com'
         }
-
-        // Plan/Act separate models setting is a boolean indicating whether the user wants to use different models for plan and act. Existing users expect this to be enabled, while we want new users to opt in to this being disabled by default.
-        // On win11 state sometimes initializes as empty string instead of undefined
-        let planActSeparateModelsSetting: boolean | undefined = undefined
-        if (planActSeparateModelsSettingRaw === true || planActSeparateModelsSettingRaw === false) {
-            planActSeparateModelsSetting = planActSeparateModelsSettingRaw
-        } else {
-            // default to true for existing users
-            if (storedApiProvider) {
-                planActSeparateModelsSetting = true
-            } else {
-                // default to false for new users
-                planActSeparateModelsSetting = false
+        let chatSettings: ChatSettings
+        if (storedChatSettings) {
+            chatSettings = storedChatSettings
+            // ensure all modes are present
+            for (const mode of ['ask', 'plan', 'act'] as const) {
+                if (chatSettings[mode] === undefined) {
+                    chatSettings[mode] = {
+                        apiProvider,
+                        apiModelId,
+                        thinkingEnabled,
+                    }
+                }
             }
-            // this is a special case where it's a new state, but we want it to default to different values for existing and new users.
-            // persist so next time state is retrieved it's set to the correct value.
-            await this.updateGlobalState('planActSeparateModelsSetting', planActSeparateModelsSetting)
+        } else {
+            chatSettings = {
+                mode: 'ask',
+                ask: {
+                    apiProvider,
+                    apiModelId,
+                    thinkingEnabled,
+                },
+                plan: {
+                    apiProvider,
+                    apiModelId,
+                    thinkingEnabled,
+                },
+                act: {
+                    apiProvider,
+                    apiModelId,
+                    thinkingEnabled,
+                },
+            }
         }
 
         return {
@@ -1471,20 +1483,16 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
                 apiModelId,
                 posthogHost,
                 posthogApiKey,
+                posthogProjectId,
                 thinkingEnabled,
             },
             customInstructions,
             taskHistory,
             autoApprovalSettings: autoApprovalSettings || DEFAULT_AUTO_APPROVAL_SETTINGS, // default value can be 0 or empty string
             browserSettings: browserSettings || DEFAULT_BROWSER_SETTINGS,
-            chatSettings: chatSettings || DEFAULT_CHAT_SETTINGS,
+            chatSettings,
             userInfo,
-            previousModeApiProvider,
-            previousModeModelId,
-            previousModeModelInfo,
-            previousModeThinkingEnabled,
             telemetrySetting: telemetrySetting || 'unset',
-            planActSeparateModelsSetting,
             enableTabAutocomplete,
         }
     }

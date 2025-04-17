@@ -17,7 +17,7 @@ import { UrlContentFetcher } from '../services/browser/UrlContentFetcher'
 import { listFiles } from '../services/glob/list-files'
 import { regexSearchFiles } from '../services/ripgrep'
 import { parseSourceCodeForDefinitionsTopLevel } from '../services/tree-sitter'
-import { anthropicDefaultModelId, ApiConfiguration } from '../shared/api'
+import { anthropicDefaultModelId, ApiConfiguration, inkeepDefaultModelId } from '../shared/api'
 import { findLast, findLastIndex, parsePartialArrayString } from '../shared/array'
 import { AutoApprovalSettings } from '../shared/AutoApprovalSettings'
 import { BrowserSettings } from '../shared/BrowserSettings'
@@ -53,8 +53,8 @@ import { parseMentions } from './mentions'
 import { formatResponse } from './prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT } from './prompts/system'
 import { ContextManager } from './context-management/ContextManager'
-import { ApiStream } from '../api/utils/stream'
-import { DEFAULT_LANGUAGE_SETTINGS, getLanguageKey, LanguageDisplay } from '../shared/Languages'
+import { ApiStream, ApiStreamChunk } from '../api/utils/stream'
+import { DEFAULT_LANGUAGE_SETTINGS, getLanguageKey, LanguageDisplay, LanguageKey } from '../shared/Languages'
 import { telemetryService } from '../services/telemetry/TelemetryService'
 import pTimeout from 'p-timeout'
 import { GlobalFileNames } from '../global-constants'
@@ -65,8 +65,10 @@ import { PostHogApiProvider } from '../api/provider'
 import { ADD_CAPTURE_CALLS_PROMPT } from './prompts/tools/add-capture-calls'
 import { ToolManager } from './tools/ToolManager'
 import { ToolInputValidationError } from './tools/base/errors'
+import { MaxTools, MaxToolsProvider } from '../api/maxTools'
 import { validateSchemaWithDefault } from '../shared/validation'
 import { z } from 'zod'
+import { getHost } from '../api/utils/host'
 
 const cwd =
     vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), 'Desktop') // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
@@ -78,6 +80,7 @@ export class PostHog {
     readonly taskId: string
     readonly apiProvider?: string
     readonly completionApiProvider?: string
+    maxToolsProvider: MaxToolsProvider
     api: PostHogApiProvider
     private terminalManager: TerminalManager
     private urlContentFetcher: UrlContentFetcher
@@ -148,10 +151,16 @@ export class PostHog {
         this.providerRef = new WeakRef(provider)
         this.apiProvider = apiConfiguration.apiProvider
         this.completionApiProvider = apiConfiguration.completionApiProvider
+        const host = getHost(apiConfiguration)
         this.api = new PostHogApiProvider(
             apiConfiguration.apiModelId ?? anthropicDefaultModelId,
-            apiConfiguration.posthogHost,
+            host,
             apiConfiguration.posthogApiKey
+        )
+        this.maxToolsProvider = new MaxToolsProvider(
+            host,
+            apiConfiguration.posthogApiKey,
+            apiConfiguration.posthogProjectId
         )
         this.terminalManager = new TerminalManager()
         this.urlContentFetcher = new UrlContentFetcher(provider.context)
@@ -162,17 +171,12 @@ export class PostHog {
         this.autoApprovalSettings = autoApprovalSettings
         this.browserSettings = browserSettings
         this.chatSettings = chatSettings
-        this.inkeepHandler = new PostHogApiProvider(
-            'inkeep-qa',
-            apiConfiguration.posthogHost,
-            apiConfiguration.posthogApiKey
-        )
-
         this.toolManager = new ToolManager({
             posthogApiKey: apiConfiguration.posthogApiKey,
             posthogHost: apiConfiguration.posthogHost,
             posthogProjectId: apiConfiguration.posthogProjectId,
         })
+        this.inkeepHandler = new PostHogApiProvider(inkeepDefaultModelId, host, apiConfiguration.posthogApiKey)
 
         if (historyItem) {
             this.taskId = historyItem.id
@@ -1284,6 +1288,199 @@ export class PostHog {
         }
     }
 
+    async streamMessage(stream: AsyncIterable<ApiStreamChunk>): Promise<string> {
+        // since we sent off a placeholder api_req_started message to update the webview while waiting to actually start the API request (to load potential details for example), we need to update the text of that message
+        const lastApiReqIndex = findLastIndex(this.posthogMessages, (m) => m.say === 'api_req_started')
+        await this.savePostHogMessages()
+        await this.providerRef.deref()?.postStateToWebview()
+
+        try {
+            let cacheWriteTokens = 0
+            let cacheReadTokens = 0
+            let inputTokens = 0
+            let outputTokens = 0
+
+            // update api_req_started. we can't use api_req_finished anymore since it's a unique case where it could come after a streaming message (ie in the middle of being updated or executed)
+            // fortunately api_req_finished was always parsed out for the gui anyways, so it remains solely for legacy purposes to keep track of prices in tasks from history
+            // (it's worth removing a few months from now)
+            const updateApiReqMsg = (cancelReason?: PostHogApiReqCancelReason, streamingFailedMessage?: string) => {
+                this.posthogMessages[lastApiReqIndex].text = JSON.stringify({
+                    ...JSON.parse(this.posthogMessages[lastApiReqIndex].text || '{}'),
+                    tokensIn: inputTokens,
+                    tokensOut: outputTokens,
+                    cacheWrites: cacheWriteTokens,
+                    cacheReads: cacheReadTokens,
+                    success: !cancelReason && !streamingFailedMessage,
+                    cancelReason,
+                    streamingFailedMessage,
+                } satisfies PostHogApiReqInfo)
+            }
+
+            const abortStream = async (cancelReason: PostHogApiReqCancelReason, streamingFailedMessage?: string) => {
+                if (this.diffViewProvider.isEditing) {
+                    await this.diffViewProvider.revertChanges() // closes diff view
+                }
+
+                // if last message is a partial we need to update and save it
+                const lastMessage = this.posthogMessages.at(-1)
+                if (lastMessage && lastMessage.partial) {
+                    // lastMessage.ts = Date.now() DO NOT update ts since it is used as a key for virtuoso list
+                    lastMessage.partial = false
+                    // instead of streaming partialMessage events, we do a save and post like normal to persist to disk
+                    console.log('updating partial message', lastMessage)
+                    // await this.savePostHogMessages()
+                }
+
+                // Let assistant know their response was interrupted for when task is resumed
+                await this.addToApiConversationHistory({
+                    role: 'assistant',
+                    content: [
+                        {
+                            type: 'text',
+                            text:
+                                assistantMessage +
+                                `\n\n[${
+                                    cancelReason === 'streaming_failed'
+                                        ? 'Response interrupted by API Error'
+                                        : 'Response interrupted by user'
+                                }]`,
+                        },
+                    ],
+                })
+
+                // update api_req_started to have cancelled
+                updateApiReqMsg(cancelReason, streamingFailedMessage)
+                await this.savePostHogMessages()
+
+                telemetryService.captureConversationTurnEvent(
+                    this.taskId,
+                    this.apiProvider,
+                    this.api.getModel().id,
+                    'assistant'
+                )
+
+                // signals to provider that it can retrieve the saved messages from disk, as abortTask can not be awaited on in nature
+                this.didFinishAbortingStream = true
+            }
+
+            // reset streaming state
+            this.currentStreamingContentIndex = 0
+            this.assistantMessageContent = []
+            this.didCompleteReadingStream = false
+            this.userMessageContent = []
+            this.userMessageContentReady = false
+            this.didRejectTool = false
+            this.didAlreadyUseTool = false
+            this.presentAssistantMessageLocked = false
+            this.presentAssistantMessageHasPendingUpdates = false
+            this.didAutomaticallyRetryFailedApiRequest = false
+            await this.diffViewProvider.reset()
+
+            let assistantMessage = ''
+            let reasoningMessage = ''
+            this.isStreaming = true
+            try {
+                for await (const chunk of stream) {
+                    if (!chunk) {
+                        continue
+                    }
+                    switch (chunk.type) {
+                        case 'usage':
+                            inputTokens += chunk.inputTokens
+                            outputTokens += chunk.outputTokens
+                            cacheWriteTokens += chunk.cacheWriteTokens ?? 0
+                            cacheReadTokens += chunk.cacheReadTokens ?? 0
+                            break
+                        case 'reasoning':
+                            // reasoning will always come before assistant message
+                            reasoningMessage += chunk.reasoning
+                            await this.say('reasoning', reasoningMessage, undefined, true)
+                            break
+                        case 'text':
+                            if (reasoningMessage && assistantMessage.length === 0) {
+                                // complete reasoning message
+                                await this.say('reasoning', reasoningMessage, undefined, false)
+                            }
+                            assistantMessage += chunk.text
+                            // parse raw assistant message into content blocks
+                            const prevLength = this.assistantMessageContent.length
+                            this.assistantMessageContent = parseAssistantMessage(assistantMessage)
+                            if (this.assistantMessageContent.length > prevLength) {
+                                this.userMessageContentReady = false // new content we need to present, reset to false in case previous content set this to true
+                            }
+                            // present content to user
+                            this.presentAssistantMessage()
+                            break
+                    }
+
+                    if (this.abort) {
+                        console.log('aborting stream...')
+                        if (!this.abandoned) {
+                            // only need to gracefully abort if this instance isn't abandoned (sometimes openrouter stream hangs, in which case this would affect future instances of posthog)
+                            await abortStream('user_cancelled')
+                        }
+                        break // aborts the stream
+                    }
+
+                    if (this.didRejectTool) {
+                        // userContent has a tool rejection, so interrupt the assistant's response to present the user's feedback
+                        assistantMessage += '\n\n[Response interrupted by user feedback]'
+                        // this.userMessageContentReady = true // instead of setting this premptively, we allow the present iterator to finish and set userMessageContentReady when its ready
+                        break
+                    }
+
+                    // PREV: we need to let the request finish for openrouter to get generation details
+                    if (this.didAlreadyUseTool) {
+                        assistantMessage +=
+                            '\n\n[Response interrupted by a tool use result. Only one tool may be used at a time and should be placed at the end of the message.]'
+                        break
+                    }
+                }
+            } catch (error) {
+                // abandoned happens when extension is no longer waiting for the posthog instance to finish aborting (error is thrown here when any function in the for loop throws due to this.abort)
+                if (!this.abandoned) {
+                    this.abortTask() // if the stream failed, there's various states the task could be in (i.e. could have streamed some tools the user may have executed), so we just resort to replicating a cancel task
+                    const errorMessage = this.formatErrorWithStatusCode(error)
+
+                    await abortStream('streaming_failed', errorMessage)
+                    const history = await this.providerRef.deref()?.getTaskWithId(this.taskId)
+                    if (history) {
+                        await this.providerRef.deref()?.initPostHogWithHistoryItem(history.historyItem)
+                        // await this.providerRef.deref()?.postStateToWebview()
+                    }
+                }
+            } finally {
+                this.isStreaming = false
+            }
+
+            // need to call here in case the stream was aborted
+            if (this.abort) {
+                throw new Error('PostHog instance aborted')
+            }
+
+            this.didCompleteReadingStream = true
+
+            // set any blocks to be complete to allow presentAssistantMessage to finish and set userMessageContentReady to true
+            // (could be a text block that had no subsequent tool uses, or a text block at the very end, or an invalid tool use, etc. whatever the case, presentAssistantMessage relies on these blocks either to be completed or the user to reject a block in order to proceed and eventually set userMessageContentReady to true)
+            const partialBlocks = this.assistantMessageContent.filter((block) => block.partial)
+            partialBlocks.forEach((block) => {
+                block.partial = false
+            })
+            // this.assistantMessageContent.forEach((e) => (e.partial = false)) // cant just do this bc a tool could be in the middle of executing ()
+            if (partialBlocks.length > 0) {
+                this.presentAssistantMessage() // if there is content to update then it will complete and update this.userMessageContentReady to true, which we pwaitfor before making the next request. all this is really doing is presenting the last partial message that we just set to complete
+            }
+
+            updateApiReqMsg()
+            await this.savePostHogMessages()
+            await this.providerRef.deref()?.postStateToWebview()
+
+            return assistantMessage
+        } catch (error) {
+            throw error
+        }
+    }
+
     async searchDocsTool(args: Record<string, any>): Promise<ToolResponse> {
         if (!this.inkeepHandler) {
             this.consecutiveMistakeCount++
@@ -1303,16 +1500,15 @@ export class PostHog {
                 },
             ]
 
-            let response = ''
-            const stream = await this.inkeepHandler.stream('', messages)
+            const stream = this.inkeepHandler.stream('', messages)
+            try {
+                const result = await this.streamMessage(stream)
 
-            for await (const chunk of stream) {
-                if (chunk.type === 'text') {
-                    response += chunk.text
-                }
+                return formatResponse.toolResult(result || 'No documentation found for this query.')
+            } catch (error) {
+                this.consecutiveMistakeCount++
+                return formatResponse.toolError(`Error searching documentation: ${(error as Error).message}`)
             }
-
-            return formatResponse.toolResult(response || 'No documentation found for this query.')
         } catch (error) {
             this.consecutiveMistakeCount++
             return formatResponse.toolError(`Error searching documentation: ${(error as Error).message}`)
@@ -1350,6 +1546,8 @@ export class PostHog {
                 }
 
                 return false
+            case 'create_and_query_insight':
+                return true
         }
     }
 
@@ -1378,7 +1576,13 @@ export class PostHog {
 
         const supportsComputerUse = modelSupportsComputerUse && !disableBrowserTool // only enable computer use if the model supports it and the user hasn't disabled it
 
-        let systemPrompt = await SYSTEM_PROMPT(cwd, supportsComputerUse, mcpHub, this.browserSettings)
+        let systemPrompt = await SYSTEM_PROMPT(
+            cwd,
+            supportsComputerUse,
+            mcpHub,
+            this.browserSettings,
+            this.chatSettings.mode
+        )
 
         let settingsCustomInstructions = this.customInstructions?.trim()
         const preferredLanguage = getLanguageKey(
@@ -1550,39 +1754,72 @@ export class PostHog {
                 }
                 let content = block.content
                 if (content) {
-                    // (have to do this for partial and complete since sending content in thinking tags to markdown renderer will automatically be removed)
-                    // Remove end substrings of <thinking or </thinking (below xml parsing is only for opening tags)
-                    // (this is done with the xml parsing below now, but keeping here for reference)
-                    // content = content.replace(/<\/?t(?:h(?:i(?:n(?:k(?:i(?:n(?:g)?)?)?)?)?)?)?$/, "")
-                    // Remove all instances of <thinking> (with optional line break after) and </thinking> (with optional line break before)
-                    // - Needs to be separate since we dont want to remove the line break before the first tag
-                    // - Needs to happen before the xml parsing below
-                    content = content.replace(/<thinking>\s?/g, '')
-                    content = content.replace(/\s?<\/thinking>/g, '')
+                    // First remove all complete thinking tags and their content
+                    const thinkingRegex = /<thinking>(.*?)<\/thinking>/gs
+                    content = content.replace(thinkingRegex, '')
 
-                    // Remove partial XML tag at the very end of the content (for tool use and thinking tags)
-                    // (prevents scrollview from jumping when tags are automatically removed)
+                    // Handle partial thinking tags at the end of content
                     const lastOpenBracketIndex = content.lastIndexOf('<')
                     if (lastOpenBracketIndex !== -1) {
                         const possibleTag = content.slice(lastOpenBracketIndex)
-                        // Check if there's a '>' after the last '<' (i.e., if the tag is complete) (complete thinking and tool tags will have been removed by now)
-                        const hasCloseBracket = possibleTag.includes('>')
-                        if (!hasCloseBracket) {
-                            // Extract the potential tag name
-                            let tagContent: string
-                            if (possibleTag.startsWith('</')) {
-                                tagContent = possibleTag.slice(2).trim()
+                        // Check if this is a partial thinking tag
+                        if (possibleTag.startsWith('<thinking') || possibleTag.startsWith('</thinking')) {
+                            // If it's a partial thinking tag, remove it from the content
+                            content = content.slice(0, lastOpenBracketIndex).trim()
+                        } else {
+                            // Handle other partial tags (tool use tags)
+                            const hasCloseBracket = possibleTag.includes('>')
+                            if (!hasCloseBracket) {
+                                let tagContent: string
+                                if (possibleTag.startsWith('</')) {
+                                    tagContent = possibleTag.slice(2).trim()
+                                } else {
+                                    tagContent = possibleTag.slice(1).trim()
+                                }
+                                const isLikelyTagName = /^[a-zA-Z_]+$/.test(tagContent)
+                                const isOpeningOrClosing = possibleTag === '<' || possibleTag === '</'
+                                if (isOpeningOrClosing || isLikelyTagName) {
+                                    content = content.slice(0, lastOpenBracketIndex).trim()
+                                }
+                            }
+                        }
+                    }
+
+                    // Now extract and send reasoning from complete thinking tags
+                    const thinkingMatches = [...block.content.matchAll(thinkingRegex)]
+                    for (const match of thinkingMatches) {
+                        const reasoningContent = match[1].trim()
+                        if (reasoningContent) {
+                            // Find the last partial reasoning message
+                            const lastReasoningMessage = this.posthogMessages
+                                .slice()
+                                .reverse()
+                                .find((msg) => msg.type === 'say' && msg.say === 'reasoning' && msg.partial)
+
+                            if (lastReasoningMessage && block.partial) {
+                                // Append to existing partial message
+                                lastReasoningMessage.text = (lastReasoningMessage.text || '') + reasoningContent
                             } else {
-                                tagContent = possibleTag.slice(1).trim()
+                                // Create new message
+                                await this.say('reasoning', reasoningContent, undefined, block.partial)
                             }
-                            // Check if tagContent is likely an incomplete tag name (letters and underscores only)
-                            const isLikelyTagName = /^[a-zA-Z_]+$/.test(tagContent)
-                            // Preemptively remove < or </ to keep from these artifacts showing up in chat (also handles closing thinking tags)
-                            const isOpeningOrClosing = possibleTag === '<' || possibleTag === '</'
-                            // If the tag is incomplete and at the end, remove it from the content
-                            if (isOpeningOrClosing || isLikelyTagName) {
-                                content = content.slice(0, lastOpenBracketIndex).trim()
-                            }
+                        }
+                    }
+
+                    // Only send the remaining content if it's not empty
+                    if (content.trim()) {
+                        // Find the last partial text message
+                        const lastTextMessage = this.posthogMessages
+                            .slice()
+                            .reverse()
+                            .find((msg) => msg.type === 'say' && msg.say === 'text' && msg.partial)
+
+                        if (lastTextMessage && block.partial) {
+                            // Append to existing partial message
+                            lastTextMessage.text = (lastTextMessage.text || '') + content
+                        } else {
+                            // Create new message
+                            await this.say('text', content, undefined, block.partial)
                         }
                     }
                 }
@@ -1596,8 +1833,6 @@ export class PostHog {
                         content = content.trimEnd().slice(0, -matchLength)
                     }
                 }
-
-                await this.say('text', content, undefined, block.partial)
                 break
             }
             case 'tool_use':
@@ -1640,6 +1875,8 @@ export class PostHog {
                             } catch (error) {
                                 return `[${block.name}]`
                             }
+                        case 'create_and_query_insight':
+                            return `[${block.name} for '${block.params.insight_type}' and '${block.params.query}']`
                         default:
                             const tool = this.toolManager.getTool(block.name)
                             if (tool) {
@@ -2375,17 +2612,10 @@ export class PostHog {
 
                                 this.consecutiveMistakeCount = 0
 
-                                const results = await this.searchDocsTool({ query })
-
-                                const completeMessage = JSON.stringify({
-                                    tool: 'searchDocs',
-                                    query,
-                                    content: typeof results === 'string' ? results : JSON.stringify(results),
-                                })
-
+                                let results: ToolResponse | null = null
                                 if (this.shouldAutoApproveTool(block.name)) {
                                     this.removeLastPartialMessageIfExistsWithType('ask', 'tool')
-                                    await this.say('tool', completeMessage, undefined, false)
+                                    results = await this.searchDocsTool({ query })
                                     this.consecutiveAutoApprovedRequestsCount++
                                     telemetryService.captureToolUsage(this.taskId, block.name, true, true)
                                 } else {
@@ -2393,15 +2623,20 @@ export class PostHog {
                                         `Max wants to search documentation for "${query}"`
                                     )
                                     this.removeLastPartialMessageIfExistsWithType('say', 'tool')
-                                    const didApprove = await askApproval('tool', completeMessage)
+                                    const didApprove = await askApproval('tool', query)
                                     if (!didApprove) {
                                         telemetryService.captureToolUsage(this.taskId, block.name, false, false)
                                         break
                                     }
+                                    results = await this.searchDocsTool({ query })
                                     telemetryService.captureToolUsage(this.taskId, block.name, false, true)
                                 }
 
-                                pushToolResult(results)
+                                if (results) {
+                                    pushToolResult(results)
+                                } else {
+                                    pushToolResult('No documentation found for this query.')
+                                }
                                 break
                             }
                         } catch (error) {
@@ -2738,6 +2973,46 @@ export class PostHog {
                             break
                         }
                     }
+                    case 'create_and_query_insight': {
+                        const insight_type: string | undefined = block.params.insight_type
+                        const queryDescription: string | undefined = block.params.query_description
+                        try {
+                            if (block.partial) {
+                                //noop
+                                break
+                            }
+
+                            if (!insight_type) {
+                                this.consecutiveMistakeCount++
+                                pushToolResult(
+                                    await this.sayAndCreateMissingParamError('create_and_query_insight', 'insight_type')
+                                )
+                                break
+                            }
+
+                            if (!queryDescription) {
+                                this.consecutiveMistakeCount++
+                                pushToolResult(
+                                    await this.sayAndCreateMissingParamError(
+                                        'create_and_query_insight',
+                                        'query_description'
+                                    )
+                                )
+                                break
+                            }
+
+                            this.removeLastPartialMessageIfExistsWithType('ask', 'tool') // in case the user changes auto-approval settings mid stream
+                            const result = await this.createAndQueryInsightTool(insight_type, queryDescription)
+                            telemetryService.captureToolUsage(this.taskId, block.name, true, true)
+
+                            pushToolResult(result)
+                            break
+                        } catch (error) {
+                            await handleError('creating and querying insight', error)
+                            break
+                        }
+                    }
+
                     case 'use_mcp_tool': {
                         const server_name: string | undefined = block.params.server_name
                         const tool_name: string | undefined = block.params.tool_name
@@ -3101,26 +3376,6 @@ export class PostHog {
                         }
                     }
                     case 'attempt_completion': {
-                        /*
-                        this.consecutiveMistakeCount = 0
-                        let resultToSend = result
-                        if (command) {
-                            await this.say("completion_result", resultToSend)
-                            // TODO: currently we don't handle if this command fails, it could be useful to let posthog know and retry
-                            const [didUserReject, commandResult] = await this.executeCommand(command, true)
-                            // if we received non-empty string, the command was rejected or failed
-                            if (commandResult) {
-                                return [didUserReject, commandResult]
-                            }
-                            resultToSend = ""
-                        }
-                        const { response, text, images } = await this.ask("completion_result", resultToSend) // this prompts webview to show 'new task' button, and enable text input (which would be the 'text' here)
-                        if (response === "yesButtonClicked") {
-                            return [false, ""] // signals to recursive loop to stop (for now this never happens since yesButtonClicked will trigger a new task)
-                        }
-                        await this.say("user_feedback", text ?? "", images)
-                        return [
-                        */
                         const result: string | undefined = block.params.result
                         const command: string | undefined = block.params.command
 
@@ -3206,7 +3461,12 @@ export class PostHog {
                                 if (command) {
                                     if (lastMessage && lastMessage.ask !== 'command') {
                                         // havent sent a command message yet so first send completion_result then command
-                                        await this.say('completion_result', result, undefined, false)
+                                        await this.say(
+                                            'completion_result',
+                                            removeClosingTag('result', result),
+                                            undefined,
+                                            false
+                                        )
                                         await this.saveCheckpoint(true)
                                         await addNewChangesFlagToLastCompletionResultMessage()
                                         telemetryService.captureTaskCompleted(this.taskId)
@@ -3229,7 +3489,12 @@ export class PostHog {
                                     // user didn't reject, but the command may have output
                                     commandResult = execCommandResult
                                 } else {
-                                    await this.say('completion_result', result, undefined, false)
+                                    await this.say(
+                                        'completion_result',
+                                        removeClosingTag('result', result),
+                                        undefined,
+                                        false
+                                    )
                                     await this.saveCheckpoint(true)
                                     await addNewChangesFlagToLastCompletionResultMessage()
                                     telemetryService.captureTaskCompleted(this.taskId)
@@ -3569,119 +3834,9 @@ export class PostHog {
                 // signals to provider that it can retrieve the saved messages from disk, as abortTask can not be awaited on in nature
                 this.didFinishAbortingStream = true
             }
-
-            // reset streaming state
-            this.currentStreamingContentIndex = 0
-            this.assistantMessageContent = []
-            this.didCompleteReadingStream = false
-            this.userMessageContent = []
-            this.userMessageContentReady = false
-            this.didRejectTool = false
-            this.didAlreadyUseTool = false
-            this.presentAssistantMessageLocked = false
-            this.presentAssistantMessageHasPendingUpdates = false
-            this.didAutomaticallyRetryFailedApiRequest = false
-            await this.diffViewProvider.reset()
-
             const stream = this.attemptApiRequest(previousApiReqIndex) // yields only if the first chunk is successful, otherwise will allow the user to retry the request (most likely due to rate limit error, which gets thrown on the first chunk)
-            let assistantMessage = ''
-            let reasoningMessage = ''
-            this.isStreaming = true
-            try {
-                for await (const chunk of stream) {
-                    if (!chunk) {
-                        continue
-                    }
-                    switch (chunk.type) {
-                        case 'usage':
-                            inputTokens += chunk.inputTokens
-                            outputTokens += chunk.outputTokens
-                            cacheWriteTokens += chunk.cacheWriteTokens ?? 0
-                            cacheReadTokens += chunk.cacheReadTokens ?? 0
-                            break
-                        case 'reasoning':
-                            // reasoning will always come before assistant message
-                            reasoningMessage += chunk.reasoning
-                            await this.say('reasoning', reasoningMessage, undefined, true)
-                            break
-                        case 'text':
-                            if (reasoningMessage && assistantMessage.length === 0) {
-                                // complete reasoning message
-                                await this.say('reasoning', reasoningMessage, undefined, false)
-                            }
-                            assistantMessage += chunk.text
-                            // parse raw assistant message into content blocks
-                            const prevLength = this.assistantMessageContent.length
-                            this.assistantMessageContent = parseAssistantMessage(assistantMessage)
-                            if (this.assistantMessageContent.length > prevLength) {
-                                this.userMessageContentReady = false // new content we need to present, reset to false in case previous content set this to true
-                            }
-                            // present content to user
-                            this.presentAssistantMessage()
-                            break
-                    }
 
-                    if (this.abort) {
-                        console.log('aborting stream...')
-                        if (!this.abandoned) {
-                            // only need to gracefully abort if this instance isn't abandoned (sometimes openrouter stream hangs, in which case this would affect future instances of posthog)
-                            await abortStream('user_cancelled')
-                        }
-                        break // aborts the stream
-                    }
-
-                    if (this.didRejectTool) {
-                        // userContent has a tool rejection, so interrupt the assistant's response to present the user's feedback
-                        assistantMessage += '\n\n[Response interrupted by user feedback]'
-                        // this.userMessageContentReady = true // instead of setting this premptively, we allow the present iterator to finish and set userMessageContentReady when its ready
-                        break
-                    }
-
-                    // PREV: we need to let the request finish for openrouter to get generation details
-                    if (this.didAlreadyUseTool) {
-                        assistantMessage +=
-                            '\n\n[Response interrupted by a tool use result. Only one tool may be used at a time and should be placed at the end of the message.]'
-                        break
-                    }
-                }
-            } catch (error) {
-                // abandoned happens when extension is no longer waiting for the posthog instance to finish aborting (error is thrown here when any function in the for loop throws due to this.abort)
-                if (!this.abandoned) {
-                    this.abortTask() // if the stream failed, there's various states the task could be in (i.e. could have streamed some tools the user may have executed), so we just resort to replicating a cancel task
-                    const errorMessage = this.formatErrorWithStatusCode(error)
-
-                    await abortStream('streaming_failed', errorMessage)
-                    const history = await this.providerRef.deref()?.getTaskWithId(this.taskId)
-                    if (history) {
-                        await this.providerRef.deref()?.initPostHogWithHistoryItem(history.historyItem)
-                        // await this.providerRef.deref()?.postStateToWebview()
-                    }
-                }
-            } finally {
-                this.isStreaming = false
-            }
-
-            // need to call here in case the stream was aborted
-            if (this.abort) {
-                throw new Error('PostHog instance aborted')
-            }
-
-            this.didCompleteReadingStream = true
-
-            // set any blocks to be complete to allow presentAssistantMessage to finish and set userMessageContentReady to true
-            // (could be a text block that had no subsequent tool uses, or a text block at the very end, or an invalid tool use, etc. whatever the case, presentAssistantMessage relies on these blocks either to be completed or the user to reject a block in order to proceed and eventually set userMessageContentReady to true)
-            const partialBlocks = this.assistantMessageContent.filter((block) => block.partial)
-            partialBlocks.forEach((block) => {
-                block.partial = false
-            })
-            // this.assistantMessageContent.forEach((e) => (e.partial = false)) // cant just do this bc a tool could be in the middle of executing ()
-            if (partialBlocks.length > 0) {
-                this.presentAssistantMessage() // if there is content to update then it will complete and update this.userMessageContentReady to true, which we pwaitfor before making the next request. all this is really doing is presenting the last partial message that we just set to complete
-            }
-
-            updateApiReqMsg()
-            await this.savePostHogMessages()
-            await this.providerRef.deref()?.postStateToWebview()
+            const assistantMessage = await this.streamMessage(stream)
 
             // now add to apiconversationhistory
             // need to save assistant responses to file before proceeding to tool use since user can exit at any moment and we wouldn't be able to save the assistant's response
@@ -3937,8 +4092,10 @@ export class PostHog {
                 "\nIn this mode you should focus on information gathering, asking questions, and architecting a solution. Once you have a plan, use the plan_mode_respond tool to engage in a conversational back and forth with the user. Do not use the plan_mode_respond tool until you've gathered all the information you need e.g. with read_file or ask_followup_question."
             details +=
                 '\n(Remember: If it seems the user wants you to use tools only available in Act Mode, you should ask the user to "toggle to Act mode" (use those words) - they will have to manually do this themselves with the Plan/Act toggle button below. You do not have the ability to switch to Act Mode yourself, and must wait for the user to do it themselves once they are satisfied with the plan. You also cannot present an option to toggle to Act mode, as this will be something you need to direct the user to do manually themselves.)'
-        } else {
+        } else if (this.chatSettings.mode === 'act') {
             details += '\nACT MODE'
+        } else if (this.chatSettings.mode === 'ask') {
+            details += '\nASK MODE'
         }
 
         return `<environment_details>\n${details.trim()}\n</environment_details>`
@@ -4020,5 +4177,21 @@ export class PostHog {
         const result = JSON.stringify(results)
 
         return result
+    }
+
+    async createAndQueryInsightTool(insight_type: string, query: string): Promise<ToolResponse> {
+        const result = await this.maxToolsProvider.callTool(MaxTools.CREATE_AND_QUERY_INSIGHT, {
+            insight_type,
+            query,
+        })
+        await this.say(
+            'tool',
+            JSON.stringify({
+                tool: 'createInsight',
+                url: result.visualization,
+            } satisfies PostHogSayTool)
+        )
+
+        return JSON.stringify(result.content)
     }
 }

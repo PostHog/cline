@@ -37,6 +37,8 @@ interface ChatTextAreaProps {
 }
 
 const PLAN_MODE_COLOR = 'var(--vscode-inputValidation-warningBorder)'
+const ASK_MODE_COLOR = 'var(--vscode-inputValidation-infoBorder)'
+const ACT_MODE_COLOR = 'var(--vscode-editor-selectionBackground)'
 
 const SwitchOption = styled.div<{ isActive: boolean }>`
     padding: 2px 8px;
@@ -67,13 +69,13 @@ const SwitchContainer = styled.div<{ disabled: boolean }>`
     user-select: none; // Prevent text selection
 `
 
-const Slider = styled.div<{ isAct: boolean; isPlan?: boolean }>`
+const Slider = styled.div<{ isAct: boolean; isPlan?: boolean; isAsk?: boolean }>`
     position: absolute;
     height: 100%;
-    width: 50%;
-    background-color: ${(props) => (props.isPlan ? PLAN_MODE_COLOR : 'var(--vscode-focusBorder)')};
+    width: 33%;
+    background-color: ${(props) => (props.isPlan ? PLAN_MODE_COLOR : props.isAsk ? ASK_MODE_COLOR : ACT_MODE_COLOR)};
     transition: transform 0.2s ease;
-    transform: translateX(${(props) => (props.isAct ? '100%' : '0%')});
+    transform: translateX(${(props) => (props.isAct ? '200%' : props.isPlan ? '100%' : '0%')});
 `
 
 const ButtonGroup = styled.div`
@@ -213,7 +215,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
         },
         ref
     ) => {
-        const { filePaths, chatSettings, apiConfiguration, platform } = useExtensionState()
+        const { filePaths, chatSettings, platform } = useExtensionState()
         const [isTextAreaFocused, setIsTextAreaFocused] = useState(false)
         const [gitCommits, setGitCommits] = useState<any[]>([])
 
@@ -239,9 +241,6 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
         const [shownTooltipMode, setShownTooltipMode] = useState<ChatSettings['mode'] | null>(null)
 
         const [, metaKeyChar] = useMetaKeyDetection(platform)
-
-        // Add a ref to track previous menu state
-        const prevShowModelSelector = useRef(showModelSelector)
 
         // Fetch git commits when Git is selected or when typing a hash
         useEffect(() => {
@@ -645,26 +644,11 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
             [updateCursorPosition]
         )
 
-        // Separate the API config submission logic
-        const submitApiConfig = useCallback(() => {
-            vscode.postMessage({ type: 'apiConfiguration', apiConfiguration })
-        }, [apiConfiguration])
-
-        const onModeToggle = useCallback(() => {
-            // if (textAreaDisabled) return
-            let changeModeDelay = 0
-            if (showModelSelector) {
-                // user has model selector open, so we should save it before switching modes
-                submitApiConfig()
-                changeModeDelay = 250 // necessary to let the api config update (we send message and wait for it to be saved) FIXME: this is a hack and we ideally should check for api config changes, then wait for it to be saved, before switching modes
-            }
-            setTimeout(() => {
-                const newMode = chatSettings.mode === 'plan' ? 'act' : 'plan'
+        const onModeToggle = useCallback(
+            (mode: 'ask' | 'plan' | 'act') => {
                 vscode.postMessage({
-                    type: 'togglePlanActMode',
-                    chatSettings: {
-                        mode: newMode,
-                    },
+                    type: 'toggleChatMode',
+                    chatMode: mode,
                     chatContent: {
                         message: inputValue.trim() ? inputValue : undefined,
                         images: selectedImages.length > 0 ? selectedImages : undefined,
@@ -674,8 +658,9 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
                 setTimeout(() => {
                     textAreaRef.current?.focus()
                 }, 100)
-            }, changeModeDelay)
-        }, [chatSettings.mode, showModelSelector, submitApiConfig, inputValue, selectedImages])
+            },
+            [chatSettings?.mode, inputValue, selectedImages]
+        )
 
         useShortcut('Meta+Shift+a', onModeToggle, { disableTextInputs: false }) // important that we don't disable the text input here
 
@@ -722,15 +707,6 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
             updateHighlights()
         }, [inputValue, textAreaDisabled, handleInputChange, updateHighlights])
 
-        // Use an effect to detect menu close
-        useEffect(() => {
-            if (prevShowModelSelector.current && !showModelSelector) {
-                // Menu was just closed
-                submitApiConfig()
-            }
-            prevShowModelSelector.current = showModelSelector
-        }, [showModelSelector, submitApiConfig])
-
         // Remove the handleApiConfigSubmit callback
         // Update click handler to just toggle the menu
         const handleModelButtonClick = () => {
@@ -744,11 +720,11 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 
         // Get model display name
         const modelDisplayName = useMemo(() => {
-            const { selectedModelId } = normalizeApiConfiguration(apiConfiguration)
+            const { selectedModelId } = normalizeApiConfiguration(chatSettings?.[chatSettings?.mode])
             const unknownModel = 'unknown'
-            if (!apiConfiguration) return unknownModel
+            if (!chatSettings) return unknownModel
             return selectedModelId
-        }, [apiConfiguration])
+        }, [chatSettings])
 
         // Calculate arrow position and menu position based on button location
         useEffect(() => {
@@ -863,6 +839,19 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
                         })
                 )
             )
+        }
+
+        const tipText = () => {
+            if (chatSettings?.mode === 'ask') {
+                return 'In Ask mode, Max will answer questions about the current project.'
+            }
+            if (chatSettings?.mode === 'plan') {
+                return 'In Plan mode, Max will gather information to architect a plan.'
+            }
+            if (chatSettings?.mode === 'act') {
+                return 'In Act mode, Max will complete the task immediately.'
+            }
+            return ''
         }
 
         return (
@@ -990,7 +979,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
                             flex: 1,
                             zIndex: 1,
                             outline: isTextAreaFocused
-                                ? `1px solid ${chatSettings.mode === 'plan' ? PLAN_MODE_COLOR : 'var(--vscode-focusBorder)'}`
+                                ? `1px solid ${chatSettings?.mode === 'plan' ? PLAN_MODE_COLOR : 'var(--vscode-focusBorder)'}`
                                 : 'none',
                         }}
                         onScroll={() => updateHighlights()}
@@ -1098,7 +1087,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
                                     <ModelButtonContent>{modelDisplayName}</ModelButtonContent>
                                 </ModelDisplayButton>
                             </ModelButtonWrapper>
-                            {showModelSelector && (
+                            {showModelSelector && chatSettings && (
                                 <ModelSelectorTooltip
                                     arrowPosition={arrowPosition}
                                     menuPosition={menuPosition}
@@ -1106,7 +1095,11 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
                                         bottom: `calc(100vh - ${menuPosition}px + 6px)`,
                                     }}
                                 >
-                                    <ApiOptions modelIdErrorMessage={undefined} isPopup={true} />
+                                    <ApiOptions
+                                        modelIdErrorMessage={undefined}
+                                        isPopup={true}
+                                        mode={chatSettings.mode}
+                                    />
                                 </ModelSelectorTooltip>
                             )}
                         </ModelContainer>
@@ -1114,22 +1107,36 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
                     <Tooltip
                         style={{ zIndex: 1000 }}
                         visible={shownTooltipMode !== null}
-                        tipText={`In ${shownTooltipMode === 'act' ? 'Act' : 'Plan'}  mode, PostHog will ${shownTooltipMode === 'act' ? 'complete the task immediately' : 'gather information to architect a plan'}`}
+                        tipText={tipText()}
                         hintText={`Toggle w/ ${metaKeyChar}+Shift+A`}
                     >
-                        <SwitchContainer data-testid="mode-switch" disabled={false} onClick={onModeToggle}>
-                            <Slider isAct={chatSettings.mode === 'act'} isPlan={chatSettings.mode === 'plan'} />
+                        <SwitchContainer data-testid="mode-switch" disabled={false}>
+                            <Slider
+                                isAct={chatSettings?.mode === 'act'}
+                                isPlan={chatSettings?.mode === 'plan'}
+                                isAsk={chatSettings?.mode === 'ask'}
+                            />
                             <SwitchOption
-                                isActive={chatSettings.mode === 'plan'}
+                                isActive={chatSettings?.mode === 'ask'}
+                                onMouseOver={() => setShownTooltipMode('ask')}
+                                onMouseLeave={() => setShownTooltipMode(null)}
+                                onClick={() => onModeToggle('ask')}
+                            >
+                                Ask
+                            </SwitchOption>
+                            <SwitchOption
+                                isActive={chatSettings?.mode === 'plan'}
                                 onMouseOver={() => setShownTooltipMode('plan')}
                                 onMouseLeave={() => setShownTooltipMode(null)}
+                                onClick={() => onModeToggle('plan')}
                             >
                                 Plan
                             </SwitchOption>
                             <SwitchOption
-                                isActive={chatSettings.mode === 'act'}
+                                isActive={chatSettings?.mode === 'act'}
                                 onMouseOver={() => setShownTooltipMode('act')}
                                 onMouseLeave={() => setShownTooltipMode(null)}
+                                onClick={() => onModeToggle('act')}
                             >
                                 Act
                             </SwitchOption>
