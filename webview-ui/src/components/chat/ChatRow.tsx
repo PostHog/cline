@@ -95,8 +95,6 @@ const ChatRow = memo(
                 message.ask === 'tool' ||
                 message.say === 'command' ||
                 message.ask === 'command' ||
-                // message.say === "completion_result" ||
-                // message.ask === "completion_result" ||
                 message.say === 'use_mcp_server' ||
                 message.ask === 'use_mcp_server')
 
@@ -252,17 +250,6 @@ export const ChatRowContent = ({
                         Max wants to {mcpServerUse.type === 'use_mcp_tool' ? 'use a tool' : 'access a resource'} on the{' '}
                         <code style={{ wordBreak: 'break-all' }}>{mcpServerUse.serverName}</code> MCP server:
                     </span>,
-                ]
-            case 'completion_result':
-                return [
-                    <span
-                        className="codicon codicon-check"
-                        style={{
-                            color: successColor,
-                            marginBottom: '-1.5px',
-                        }}
-                    ></span>,
-                    <span style={{ color: successColor, fontWeight: 'bold' }}>Task Completed</span>,
                 ]
             case 'api_req_started':
                 const getIconSpan = (iconName: string, color: string) => (
@@ -563,8 +550,39 @@ export const ChatRowContent = ({
                         </div>
                     </>
                 )
-            default:
-                return null
+            case 'createFeatureFlag':
+                return (
+                    <div style={headerStyle}>
+                        {toolIcon('add')}
+                        <span style={{ fontWeight: 'bold' }}>
+                            {message.type === 'ask'
+                                ? 'Max wants to create a new feature flag'
+                                : 'Max created a new feature flag'}
+                        </span>
+                    </div>
+                )
+            case 'updateFeatureFlag':
+                return (
+                    <div style={headerStyle}>
+                        {toolIcon('edit')}
+                        <span style={{ fontWeight: 'bold' }}>
+                            {message.type === 'ask'
+                                ? 'Max wants to update a feature flag'
+                                : 'Max updated a feature flag'}
+                        </span>
+                    </div>
+                )
+            case 'listFeatureFlags':
+                return (
+                    <div style={headerStyle}>
+                        {toolIcon('search')}
+                        <span style={{ fontWeight: 'bold' }}>
+                            {message.type === 'ask'
+                                ? 'Max wants access to read feature flags in your project'
+                                : 'Max retrieved feature flags from your project'}
+                        </span>
+                    </div>
+                )
         }
     }
 
@@ -735,7 +753,6 @@ export const ChatRowContent = ({
             </>
         )
     }
-
     switch (message.type) {
         case 'say':
             switch (message.say) {
@@ -974,14 +991,7 @@ export const ChatRowContent = ({
                                 {icon}
                                 {title}
                             </div>
-                            <div
-                                style={{
-                                    color: 'var(--vscode-charts-green)',
-                                    paddingTop: 10,
-                                }}
-                            >
-                                <Markdown markdown={text} />
-                            </div>
+                            <Markdown markdown={text} />
                             {message.partial !== true && hasChanges && (
                                 <div style={{ paddingTop: 17 }}>
                                     <SuccessButton

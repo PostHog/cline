@@ -159,6 +159,9 @@ export interface PostHogSayTool {
         | 'listCodeDefinitionNames'
         | 'searchFiles'
         | 'createInsight'
+        | 'createFeatureFlag'
+        | 'updateFeatureFlag'
+        | 'listFeatureFlags'
     path?: string
     diff?: string
     content?: string

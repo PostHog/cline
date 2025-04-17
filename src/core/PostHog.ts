@@ -2,7 +2,6 @@ import { Anthropic } from '@anthropic-ai/sdk'
 import cloneDeep from 'clone-deep'
 import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
 import fs from 'fs/promises'
-import getFolderSize from 'get-folder-size'
 import os from 'os'
 import pWaitFor from 'p-wait-for'
 import * as path from 'path'
@@ -59,14 +58,13 @@ import { DEFAULT_LANGUAGE_SETTINGS, getLanguageKey, LanguageDisplay, LanguageKey
 import { telemetryService } from '../services/telemetry/TelemetryService'
 import pTimeout from 'p-timeout'
 import { GlobalFileNames } from '../global-constants'
-import {
-    checkIsAnthropicContextWindowError,
-    checkIsOpenRouterContextWindowError,
-} from './context-management/context-error-handling'
+import { checkIsAnthropicContextWindowError } from './context-management/context-error-handling'
 import { LOCK_TEXT_SYMBOL, PostHogIgnoreController } from './ignore/PostHogIgnoreController'
 import { PostHogProvider } from './webview/PostHogProvider'
 import { PostHogApiProvider } from '../api/provider'
 import { ADD_CAPTURE_CALLS_PROMPT } from './prompts/tools/add-capture-calls'
+import { ToolManager } from './tools/ToolManager'
+import { ToolInputValidationError } from './tools/base/errors'
 import { MaxTools, MaxToolsProvider } from '../api/maxTools'
 import { validateSchemaWithDefault } from '../shared/validation'
 import { z } from 'zod'
@@ -128,6 +126,7 @@ export class PostHog {
     private didCompleteReadingStream = false
     private didAutomaticallyRetryFailedApiRequest = false
     private inkeepHandler?: PostHogApiProvider
+    private toolManager: ToolManager
 
     constructor(
         provider: PostHogProvider,
@@ -140,6 +139,11 @@ export class PostHog {
         images?: string[],
         historyItem?: HistoryItem
     ) {
+        apiConfiguration = {
+            ...apiConfiguration,
+            posthogHost: process.env.IS_DEV ? 'http://localhost:8010' : apiConfiguration.posthogHost,
+            posthogProjectId: apiConfiguration.posthogProjectId,
+        }
         this.posthogIgnoreController = new PostHogIgnoreController(cwd)
         this.posthogIgnoreController.initialize().catch((error) => {
             console.error('Failed to initialize PostHogIgnoreController:', error)
@@ -167,7 +171,13 @@ export class PostHog {
         this.autoApprovalSettings = autoApprovalSettings
         this.browserSettings = browserSettings
         this.chatSettings = chatSettings
+        this.toolManager = new ToolManager({
+            posthogApiKey: apiConfiguration.posthogApiKey,
+            posthogHost: apiConfiguration.posthogHost,
+            posthogProjectId: apiConfiguration.posthogProjectId,
+        })
         this.inkeepHandler = new PostHogApiProvider(inkeepDefaultModelId, host, apiConfiguration.posthogApiKey)
+
         if (historyItem) {
             this.taskId = historyItem.id
             this.conversationHistoryDeletedRange = historyItem.conversationHistoryDeletedRange
@@ -1524,10 +1534,21 @@ export class PostHog {
             case 'access_mcp_resource':
             case 'use_mcp_tool':
                 return this.autoApprovalSettings.actions.useMcp
+            case 'plan_mode_respond':
+            case 'ask_followup_question':
+            case 'attempt_completion':
+                return false
             case 'create_and_query_insight':
                 return true
+            default:
+                const tool = this.toolManager.getTool(toolName)
+
+                if (tool) {
+                    return tool.autoApprove
+                }
+
+                return false
         }
-        return false
     }
 
     private formatErrorWithStatusCode(error: any): string {
@@ -1733,39 +1754,72 @@ export class PostHog {
                 }
                 let content = block.content
                 if (content) {
-                    // (have to do this for partial and complete since sending content in thinking tags to markdown renderer will automatically be removed)
-                    // Remove end substrings of <thinking or </thinking (below xml parsing is only for opening tags)
-                    // (this is done with the xml parsing below now, but keeping here for reference)
-                    // content = content.replace(/<\/?t(?:h(?:i(?:n(?:k(?:i(?:n(?:g)?)?)?)?)?)?)?$/, "")
-                    // Remove all instances of <thinking> (with optional line break after) and </thinking> (with optional line break before)
-                    // - Needs to be separate since we dont want to remove the line break before the first tag
-                    // - Needs to happen before the xml parsing below
-                    content = content.replace(/<thinking>\s?/g, '')
-                    content = content.replace(/\s?<\/thinking>/g, '')
+                    // First remove all complete thinking tags and their content
+                    const thinkingRegex = /<thinking>(.*?)<\/thinking>/gs
+                    content = content.replace(thinkingRegex, '')
 
-                    // Remove partial XML tag at the very end of the content (for tool use and thinking tags)
-                    // (prevents scrollview from jumping when tags are automatically removed)
+                    // Handle partial thinking tags at the end of content
                     const lastOpenBracketIndex = content.lastIndexOf('<')
                     if (lastOpenBracketIndex !== -1) {
                         const possibleTag = content.slice(lastOpenBracketIndex)
-                        // Check if there's a '>' after the last '<' (i.e., if the tag is complete) (complete thinking and tool tags will have been removed by now)
-                        const hasCloseBracket = possibleTag.includes('>')
-                        if (!hasCloseBracket) {
-                            // Extract the potential tag name
-                            let tagContent: string
-                            if (possibleTag.startsWith('</')) {
-                                tagContent = possibleTag.slice(2).trim()
+                        // Check if this is a partial thinking tag
+                        if (possibleTag.startsWith('<thinking') || possibleTag.startsWith('</thinking')) {
+                            // If it's a partial thinking tag, remove it from the content
+                            content = content.slice(0, lastOpenBracketIndex).trim()
+                        } else {
+                            // Handle other partial tags (tool use tags)
+                            const hasCloseBracket = possibleTag.includes('>')
+                            if (!hasCloseBracket) {
+                                let tagContent: string
+                                if (possibleTag.startsWith('</')) {
+                                    tagContent = possibleTag.slice(2).trim()
+                                } else {
+                                    tagContent = possibleTag.slice(1).trim()
+                                }
+                                const isLikelyTagName = /^[a-zA-Z_]+$/.test(tagContent)
+                                const isOpeningOrClosing = possibleTag === '<' || possibleTag === '</'
+                                if (isOpeningOrClosing || isLikelyTagName) {
+                                    content = content.slice(0, lastOpenBracketIndex).trim()
+                                }
+                            }
+                        }
+                    }
+
+                    // Now extract and send reasoning from complete thinking tags
+                    const thinkingMatches = [...block.content.matchAll(thinkingRegex)]
+                    for (const match of thinkingMatches) {
+                        const reasoningContent = match[1].trim()
+                        if (reasoningContent) {
+                            // Find the last partial reasoning message
+                            const lastReasoningMessage = this.posthogMessages
+                                .slice()
+                                .reverse()
+                                .find((msg) => msg.type === 'say' && msg.say === 'reasoning' && msg.partial)
+
+                            if (lastReasoningMessage && block.partial) {
+                                // Append to existing partial message
+                                lastReasoningMessage.text = (lastReasoningMessage.text || '') + reasoningContent
                             } else {
-                                tagContent = possibleTag.slice(1).trim()
+                                // Create new message
+                                await this.say('reasoning', reasoningContent, undefined, block.partial)
                             }
-                            // Check if tagContent is likely an incomplete tag name (letters and underscores only)
-                            const isLikelyTagName = /^[a-zA-Z_]+$/.test(tagContent)
-                            // Preemptively remove < or </ to keep from these artifacts showing up in chat (also handles closing thinking tags)
-                            const isOpeningOrClosing = possibleTag === '<' || possibleTag === '</'
-                            // If the tag is incomplete and at the end, remove it from the content
-                            if (isOpeningOrClosing || isLikelyTagName) {
-                                content = content.slice(0, lastOpenBracketIndex).trim()
-                            }
+                        }
+                    }
+
+                    // Only send the remaining content if it's not empty
+                    if (content.trim()) {
+                        // Find the last partial text message
+                        const lastTextMessage = this.posthogMessages
+                            .slice()
+                            .reverse()
+                            .find((msg) => msg.type === 'say' && msg.say === 'text' && msg.partial)
+
+                        if (lastTextMessage && block.partial) {
+                            // Append to existing partial message
+                            lastTextMessage.text = (lastTextMessage.text || '') + content
+                        } else {
+                            // Create new message
+                            await this.say('text', content, undefined, block.partial)
                         }
                     }
                 }
@@ -1779,8 +1833,6 @@ export class PostHog {
                         content = content.trimEnd().slice(0, -matchLength)
                     }
                 }
-
-                await this.say('text', content, undefined, block.partial)
                 break
             }
             case 'tool_use':
@@ -1825,6 +1877,13 @@ export class PostHog {
                             }
                         case 'create_and_query_insight':
                             return `[${block.name} for '${block.params.insight_type}' and '${block.params.query}']`
+                        default:
+                            const tool = this.toolManager.getTool(block.name)
+                            if (tool) {
+                                return tool.getToolUsageDescription(block)
+                            }
+
+                            return ''
                     }
                 }
 
@@ -3317,26 +3376,6 @@ export class PostHog {
                         }
                     }
                     case 'attempt_completion': {
-                        /*
-                        this.consecutiveMistakeCount = 0
-                        let resultToSend = result
-                        if (command) {
-                            await this.say("completion_result", resultToSend)
-                            // TODO: currently we don't handle if this command fails, it could be useful to let posthog know and retry
-                            const [didUserReject, commandResult] = await this.executeCommand(command, true)
-                            // if we received non-empty string, the command was rejected or failed
-                            if (commandResult) {
-                                return [didUserReject, commandResult]
-                            }
-                            resultToSend = ""
-                        }
-                        const { response, text, images } = await this.ask("completion_result", resultToSend) // this prompts webview to show 'new task' button, and enable text input (which would be the 'text' here)
-                        if (response === "yesButtonClicked") {
-                            return [false, ""] // signals to recursive loop to stop (for now this never happens since yesButtonClicked will trigger a new task)
-                        }
-                        await this.say("user_feedback", text ?? "", images)
-                        return [
-                        */
                         const result: string | undefined = block.params.result
                         const command: string | undefined = block.params.command
 
@@ -3422,7 +3461,12 @@ export class PostHog {
                                 if (command) {
                                     if (lastMessage && lastMessage.ask !== 'command') {
                                         // havent sent a command message yet so first send completion_result then command
-                                        await this.say('completion_result', result, undefined, false)
+                                        await this.say(
+                                            'completion_result',
+                                            removeClosingTag('result', result),
+                                            undefined,
+                                            false
+                                        )
                                         await this.saveCheckpoint(true)
                                         await addNewChangesFlagToLastCompletionResultMessage()
                                         telemetryService.captureTaskCompleted(this.taskId)
@@ -3445,7 +3489,12 @@ export class PostHog {
                                     // user didn't reject, but the command may have output
                                     commandResult = execCommandResult
                                 } else {
-                                    await this.say('completion_result', result, undefined, false)
+                                    await this.say(
+                                        'completion_result',
+                                        removeClosingTag('result', result),
+                                        undefined,
+                                        false
+                                    )
                                     await this.saveCheckpoint(true)
                                     await addNewChangesFlagToLastCompletionResultMessage()
                                     telemetryService.captureTaskCompleted(this.taskId)
@@ -3489,6 +3538,87 @@ export class PostHog {
 
                             break
                         }
+                    }
+                    default: {
+                        const tool = this.toolManager.getTool(block.name)
+
+                        if (!tool) {
+                            break
+                        }
+
+                        try {
+                            if (block.partial) {
+                                const shouldAutoApprove = this.shouldAutoApproveTool(block.name)
+
+                                const partialMessage = JSON.stringify({
+                                    tool: tool.sayToolName,
+                                    content: JSON.stringify(block.params),
+                                } satisfies PostHogSayTool)
+
+                                if (shouldAutoApprove) {
+                                    this.removeLastPartialMessageIfExistsWithType('ask', 'tool')
+                                    await this.say('tool', partialMessage, undefined, block.partial)
+                                } else {
+                                    this.removeLastPartialMessageIfExistsWithType('say', 'tool')
+                                    await this.ask('tool', partialMessage, block.partial).catch(() => {})
+                                }
+
+                                break
+                            }
+
+                            // Validate input
+                            const input = tool.validateInput(block.params)
+
+                            this.consecutiveMistakeCount = 0
+
+                            const shouldAutoApprove = this.shouldAutoApproveTool(block.name)
+
+                            const completeMessage = JSON.stringify({
+                                tool: tool.sayToolName,
+                                content: JSON.stringify(block.params),
+                            } satisfies PostHogSayTool)
+
+                            // // Ensure approval
+                            if (shouldAutoApprove) {
+                                this.removeLastPartialMessageIfExistsWithType('ask', 'tool')
+
+                                await this.say('tool', completeMessage, undefined, false)
+                            } else {
+                                showNotificationForApprovalIfAutoApprovalEnabled(
+                                    `Max would like to run the following tool: ${tool.name}`
+                                )
+
+                                this.removeLastPartialMessageIfExistsWithType('say', 'tool')
+
+                                const didApprove = await askApproval('tool', completeMessage)
+
+                                if (!didApprove) {
+                                    telemetryService.captureToolUsage(this.taskId, block.name, false, false)
+                                    break
+                                }
+                            }
+
+                            const output = await tool.execute(input as any)
+
+                            this.consecutiveAutoApprovedRequestsCount++
+
+                            telemetryService.captureToolUsage(this.taskId, block.name, shouldAutoApprove, true)
+
+                            const outputForAssistant = tool.formatOutputForAssistant(output as any)
+                            pushToolResult(outputForAssistant)
+                        } catch (error) {
+                            if (
+                                error instanceof ToolInputValidationError ||
+                                error instanceof ToolInputValidationError
+                            ) {
+                                this.consecutiveMistakeCount++
+                            }
+
+                            await handleError(`executing tool ${block.name}`, error)
+                            break
+                        }
+
+                        break
                     }
                 }
                 break
