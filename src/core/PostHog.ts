@@ -1733,39 +1733,72 @@ export class PostHog {
                 }
                 let content = block.content
                 if (content) {
-                    // (have to do this for partial and complete since sending content in thinking tags to markdown renderer will automatically be removed)
-                    // Remove end substrings of <thinking or </thinking (below xml parsing is only for opening tags)
-                    // (this is done with the xml parsing below now, but keeping here for reference)
-                    // content = content.replace(/<\/?t(?:h(?:i(?:n(?:k(?:i(?:n(?:g)?)?)?)?)?)?)?$/, "")
-                    // Remove all instances of <thinking> (with optional line break after) and </thinking> (with optional line break before)
-                    // - Needs to be separate since we dont want to remove the line break before the first tag
-                    // - Needs to happen before the xml parsing below
-                    content = content.replace(/<thinking>\s?/g, '')
-                    content = content.replace(/\s?<\/thinking>/g, '')
+                    // First remove all complete thinking tags and their content
+                    const thinkingRegex = /<thinking>(.*?)<\/thinking>/gs
+                    content = content.replace(thinkingRegex, '')
 
-                    // Remove partial XML tag at the very end of the content (for tool use and thinking tags)
-                    // (prevents scrollview from jumping when tags are automatically removed)
+                    // Handle partial thinking tags at the end of content
                     const lastOpenBracketIndex = content.lastIndexOf('<')
                     if (lastOpenBracketIndex !== -1) {
                         const possibleTag = content.slice(lastOpenBracketIndex)
-                        // Check if there's a '>' after the last '<' (i.e., if the tag is complete) (complete thinking and tool tags will have been removed by now)
-                        const hasCloseBracket = possibleTag.includes('>')
-                        if (!hasCloseBracket) {
-                            // Extract the potential tag name
-                            let tagContent: string
-                            if (possibleTag.startsWith('</')) {
-                                tagContent = possibleTag.slice(2).trim()
+                        // Check if this is a partial thinking tag
+                        if (possibleTag.startsWith('<thinking') || possibleTag.startsWith('</thinking')) {
+                            // If it's a partial thinking tag, remove it from the content
+                            content = content.slice(0, lastOpenBracketIndex).trim()
+                        } else {
+                            // Handle other partial tags (tool use tags)
+                            const hasCloseBracket = possibleTag.includes('>')
+                            if (!hasCloseBracket) {
+                                let tagContent: string
+                                if (possibleTag.startsWith('</')) {
+                                    tagContent = possibleTag.slice(2).trim()
+                                } else {
+                                    tagContent = possibleTag.slice(1).trim()
+                                }
+                                const isLikelyTagName = /^[a-zA-Z_]+$/.test(tagContent)
+                                const isOpeningOrClosing = possibleTag === '<' || possibleTag === '</'
+                                if (isOpeningOrClosing || isLikelyTagName) {
+                                    content = content.slice(0, lastOpenBracketIndex).trim()
+                                }
+                            }
+                        }
+                    }
+
+                    // Now extract and send reasoning from complete thinking tags
+                    const thinkingMatches = [...block.content.matchAll(thinkingRegex)]
+                    for (const match of thinkingMatches) {
+                        const reasoningContent = match[1].trim()
+                        if (reasoningContent) {
+                            // Find the last partial reasoning message
+                            const lastReasoningMessage = this.posthogMessages
+                                .slice()
+                                .reverse()
+                                .find((msg) => msg.type === 'say' && msg.say === 'reasoning' && msg.partial)
+
+                            if (lastReasoningMessage && block.partial) {
+                                // Append to existing partial message
+                                lastReasoningMessage.text = (lastReasoningMessage.text || '') + reasoningContent
                             } else {
-                                tagContent = possibleTag.slice(1).trim()
+                                // Create new message
+                                await this.say('reasoning', reasoningContent, undefined, block.partial)
                             }
-                            // Check if tagContent is likely an incomplete tag name (letters and underscores only)
-                            const isLikelyTagName = /^[a-zA-Z_]+$/.test(tagContent)
-                            // Preemptively remove < or </ to keep from these artifacts showing up in chat (also handles closing thinking tags)
-                            const isOpeningOrClosing = possibleTag === '<' || possibleTag === '</'
-                            // If the tag is incomplete and at the end, remove it from the content
-                            if (isOpeningOrClosing || isLikelyTagName) {
-                                content = content.slice(0, lastOpenBracketIndex).trim()
-                            }
+                        }
+                    }
+
+                    // Only send the remaining content if it's not empty
+                    if (content.trim()) {
+                        // Find the last partial text message
+                        const lastTextMessage = this.posthogMessages
+                            .slice()
+                            .reverse()
+                            .find((msg) => msg.type === 'say' && msg.say === 'text' && msg.partial)
+
+                        if (lastTextMessage && block.partial) {
+                            // Append to existing partial message
+                            lastTextMessage.text = (lastTextMessage.text || '') + content
+                        } else {
+                            // Create new message
+                            await this.say('text', content, undefined, block.partial)
                         }
                     }
                 }
@@ -1779,8 +1812,6 @@ export class PostHog {
                         content = content.trimEnd().slice(0, -matchLength)
                     }
                 }
-
-                await this.say('text', content, undefined, block.partial)
                 break
             }
             case 'tool_use':
