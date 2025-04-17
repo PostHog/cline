@@ -84,46 +84,67 @@ export const openaiModels = {
         maxTokens: 32_768,
         contextWindow: 1_047_576,
         supportsImages: true,
+        supportsExtendedThinking: false,
     },
     'gpt-4.1-mini': {
         maxTokens: 32_768,
         contextWindow: 1_047_576,
         supportsImages: true,
+        supportsExtendedThinking: false,
     },
     'gpt-4.1-nano': {
         maxTokens: 32_768,
         contextWindow: 1_047_576,
         supportsImages: true,
+        supportsExtendedThinking: false,
+    },
+    o3: {
+        maxTokens: 100_000,
+        contextWindow: 200_000,
+        supportsImages: true,
+        supportsExtendedThinking: true,
+    },
+    'o4-mini': {
+        maxTokens: 100_000,
+        contextWindow: 200_000,
+        supportsImages: true,
+        supportsExtendedThinking: true,
     },
     'o3-mini': {
         maxTokens: 100_000,
         contextWindow: 200_000,
         supportsImages: false,
+        supportsExtendedThinking: true,
     },
     o1: {
         maxTokens: 100_000,
         contextWindow: 200_000,
         supportsImages: true,
+        supportsExtendedThinking: true,
     },
     'o1-mini': {
         maxTokens: 65_536,
         contextWindow: 128_000,
         supportsImages: true,
+        supportsExtendedThinking: true,
     },
     'gpt-4o': {
         maxTokens: 4_096,
         contextWindow: 128_000,
         supportsImages: true,
+        supportsExtendedThinking: false,
     },
     'gpt-4o-mini': {
         maxTokens: 16_384,
         contextWindow: 128_000,
         supportsImages: true,
+        supportsExtendedThinking: false,
     },
     'chatgpt-4o-latest': {
         maxTokens: 16_384,
         contextWindow: 128_000,
         supportsImages: true,
+        supportsExtendedThinking: false,
     },
 } as const satisfies Record<string, ModelInfo> // as const assertion makes the object deeply readonly
 
@@ -135,21 +156,25 @@ export const geminiModels = {
         maxTokens: 8192,
         contextWindow: 1_048_576,
         supportsImages: true,
+        supportsExtendedThinking: false,
     },
     'gemini-2.0-flash-lite-001': {
         maxTokens: 8192,
         contextWindow: 1_048_576,
         supportsImages: true,
+        supportsExtendedThinking: false,
     },
     'gemini-1.5-flash': {
         maxTokens: 8192,
         contextWindow: 1_048_576,
         supportsImages: true,
+        supportsExtendedThinking: false,
     },
     'gemini-1.5-flash-8b': {
         maxTokens: 8192,
         contextWindow: 1_048_576,
         supportsImages: true,
+        supportsExtendedThinking: false,
     },
 } as const satisfies Record<string, ModelInfo> // as const assertion makes the object deeply readonly
 

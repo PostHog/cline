@@ -101,7 +101,7 @@ const ApiOptions = ({ modelIdErrorMessage, isPopup, mode }: ApiOptionsProps) => 
     // Memoize the normalized configuration
     const { selectedProvider, selectedModelId, selectedModelInfo } = useMemo(() => {
         if (!chatSettings)
-            return { selectedProvider: 'Loading...', selectedModelId: 'Loading...', selectedModelInfo: {} }
+            return { selectedProvider: 'Loading...', selectedModelId: 'Loading...', selectedModelInfo: {} as ModelInfo }
         const apiConfiguration = chatSettings[mode]
         return normalizeApiConfiguration(apiConfiguration)
     }, [chatSettings, mode])
@@ -164,7 +164,7 @@ const ApiOptions = ({ modelIdErrorMessage, isPopup, mode }: ApiOptionsProps) => 
                     {selectedProvider === 'gemini' && createDropdown(geminiModels)}
                 </DropdownContainer>
 
-                {selectedProvider === 'anthropic' && selectedModelId === 'claude-3-7-sonnet-20250219' && (
+                {selectedModelInfo.supportsExtendedThinking && (
                     <Container>
                         <VSCodeCheckbox checked={chatSettings?.[mode]?.thinkingEnabled} onChange={handleToggleChange}>
                             Enable extended thinking
