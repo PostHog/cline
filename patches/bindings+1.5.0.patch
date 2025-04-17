@@ -1,22 +1,25 @@
-# You may think this is whole diff is the result of an accident, just a typo. You couldn't be further from the truth.
+# You may think this whole diff is the result of an accident, just a typo. You couldn't be further from the truth.
 # Without this patch, the extension cannot load `node-sqlite3`'s `node_sqlite3.node` binary, and fails to init altogether.
 #
 # This is a rabbit hole:
 #
 # `node-sqlite3` uses `node-bindings` to load the binary. To identify in what directory to look for the binary,
-# `node-bindings` tries to the location of the current script being executed (`getRoot()` and `getFileName()`).
-# It does so by extracting the current stack trace via a dummy error. The depth of that stack trace is limited
-# to 10 items.
+# `node-bindings` tries to identify the location of the current script being executed (`getRoot()`).
+# It does so by extracting the current stack trace via a dummy error (`getFileName()`). The depth of that stack trace
+# is limited to 10 items.
 #
-# HOWEVER, `getFileName()` in its resolution skips the script where `getFileName()` _itself_ is located
-# (Node global var `__filename`). This is a problem in a bundled VS Code extension – our `extension.js`
-# is only loaded by the VS Code extension host. The first non-`extension.js` item in the stack trace ends up being
-# `node:internal/modules/cjs/loader` at the 8th position. That is not an actual filesystem path, which means the
-# sqlite3 binary fails to load!
+# Now, `getFileName()` in its resolution skips the script where `getFileName()` _itself_ is located
+# (Node global var `__filename`). This is a problem in a bundled VS Code extension, because EVERYTHING is in one
+# `extension.js`, which is loaded by the VS Code extension host. The first non-`extension.js` item in the stack trace
+# ends up being `node:internal/modules/cjs/loader` at the 8th position. That is not an actual filesystem path, which
+# means the sqlite3 binary fails to load! (i.e. there's no `node:internal/modules/cjs/build/Release/node_sqlite3.node`)
 #
-# We fix the issue by limiting the stack trace depth to 1, which means our `extension.js` is correctly resolved.
+# We fix the issue by limiting the stack trace depth to 1, which means our `dist/extension.js` is correctly used
+# as the current file, and `dist/` as the root directory.
+
 # In a more complex extension, we would also have silently bypassed this is if our stack trace _within_ `extension.js`
-# was deeper than 10 items. Perhaps this is why this is not a commonplace issue in extensions using `node-sqlite3`.
+# was deeper than 10 items, i.e. if in our source codebase there were more layers of imports between `extension.ts` and
+# `import * as sqlite3 from 'sqlite3'`.
 
 diff --git a/node_modules/bindings/bindings.js b/node_modules/bindings/bindings.js
 index 727413a..634d752 100644
