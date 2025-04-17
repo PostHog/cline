@@ -3,6 +3,7 @@ import * as fs from 'node:fs/promises'
 import { createHash } from 'crypto'
 import { TreeNode, TreeNodeType } from './types'
 import { isBinaryFile } from 'isbinaryfile'
+import { extname } from 'node:path'
 
 export class MerkleTreeNode {
     private calculatedHash: string | null = null
@@ -64,6 +65,19 @@ export class MerkleTreeNode {
         return this.calculatedHash
     }
 
+    get extension() {
+        if (this.type !== 'file') {
+            return null
+        }
+
+        const ext = extname(this.path)
+        if (!ext) {
+            return null
+        }
+
+        return ext.slice(1)
+    }
+
     /**
      * Traverse the tree and convert it to the `TreeNode` objects.
      * @param parentId - The parent node id.
@@ -104,6 +118,16 @@ export class MerkleTreeNode {
         return map
     }
 
+    async read(): Promise<Buffer> {
+        if (this.type !== 'file') {
+            throw new Error('Cannot read non-file node')
+        }
+
+        const filePath = fileURLToPath(this.path)
+        const content = await fs.readFile(filePath)
+        return content
+    }
+
     private toTreeNode(parentId?: string): TreeNode {
         return {
             id: this.hash,
@@ -113,10 +137,9 @@ export class MerkleTreeNode {
     }
 
     private async generateFileHash() {
-        const filePath = fileURLToPath(this.path)
         try {
-            const fileContent = await fs.readFile(filePath)
-            const isBinary = await isBinaryFile(filePath)
+            const fileContent = await this.read()
+            const isBinary = await isBinaryFile(fileContent)
             if (isBinary) {
                 return null
             }
