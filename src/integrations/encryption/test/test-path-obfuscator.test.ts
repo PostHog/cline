@@ -19,10 +19,9 @@ describe('PathObfuscator', () => {
     it('should obfuscate and reveal paths', async () => {
         const path = '/Users/test/test.txt'
         const obfuscator = new PathObfuscator(extensionContext)
-        await obfuscator.init()
 
-        const obfuscated = obfuscator.obfuscatePath(path)
-        const revealed = obfuscator.revealPath(obfuscated)
+        const obfuscated = await obfuscator.obfuscatePath(path)
+        const revealed = await obfuscator.revealPath(obfuscated)
         expect(revealed).to.equal(path)
     })
 })

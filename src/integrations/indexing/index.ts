@@ -1,1 +1,1 @@
-export { CodebaseSyncIntegration } from './sync'
+export { CodebaseIndexer } from './sync'
