@@ -21,7 +21,7 @@ import { PostHogApiProvider } from './api/provider'
 import { codestralDefaultModelId } from './shared/api'
 import { CodeAnalyzer } from './analysis/codeAnalyzer'
 import { debounce } from './utils/debounce'
-import { CodebaseSyncIntegration } from './integrations/indexing'
+import { CodebaseIndexer } from './integrations/indexing'
 import { PathObfuscator } from './integrations/encryption'
 
 /*
@@ -50,7 +50,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const state = await sidebarProvider.getState()
 
     const pathObfuscator = new PathObfuscator(context)
-    const codebaseSyncIntegration = new CodebaseSyncIntegration(
+    const codebaseIndexer = new CodebaseIndexer(
         context,
         {
             projectId: 1,
@@ -59,7 +59,7 @@ export async function activate(context: vscode.ExtensionContext) {
         },
         pathObfuscator
     )
-    codebaseSyncIntegration.sync()
+    // codebaseIndexer.sync()
 
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(PostHogProvider.sideBarId, sidebarProvider, {
