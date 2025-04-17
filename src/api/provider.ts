@@ -1,7 +1,16 @@
 import { Anthropic } from '@anthropic-ai/sdk'
 import { withExponentialBackoff } from './utils/fetch'
 import { ApiStreamChunk, streamSse } from './utils/stream'
-import { anthropicDefaultModelId, AnthropicModelId, anthropicModels, ModelInfo } from '../shared/api'
+import {
+    anthropicDefaultModelId,
+    AnthropicModelId,
+    anthropicModels,
+    GeminiModelId,
+    geminiModels,
+    ModelInfo,
+    OpenAIModelId,
+    openaiModels,
+} from '../shared/api'
 import { allModels } from '../shared/api'
 
 export class PostHogApiProvider {
@@ -101,9 +110,19 @@ export class PostHogApiProvider {
 
     getModel(): { id: string; info: ModelInfo } {
         const modelId = this.model
-        if (modelId && modelId in anthropicModels) {
-            const id = modelId as AnthropicModelId
-            return { id, info: anthropicModels[id] }
+        if (modelId) {
+            if (modelId in anthropicModels) {
+                const id = modelId as AnthropicModelId
+                return { id, info: anthropicModels[id] }
+            }
+            if (modelId in geminiModels) {
+                const id = modelId as GeminiModelId
+                return { id, info: geminiModels[id] }
+            }
+            if (modelId in openaiModels) {
+                const id = modelId as OpenAIModelId
+                return { id, info: openaiModels[id] }
+            }
         }
         return {
             id: anthropicDefaultModelId,

@@ -149,7 +149,7 @@ export class PostHog {
             console.error('Failed to initialize PostHogIgnoreController:', error)
         })
         this.providerRef = new WeakRef(provider)
-        this.apiProvider = apiConfiguration.apiProvider
+        this.apiProvider = apiConfiguration.apiProvider ?? 'anthropic'
         this.completionApiProvider = apiConfiguration.completionApiProvider
         const host = getHost(apiConfiguration)
         this.api = new PostHogApiProvider(
