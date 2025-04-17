@@ -71,14 +71,6 @@ export const BrowserSettingsMenu = () => {
         vscode.postMessage({
             type: 'openSettings',
         })
-
-        // // After a short delay, send a message to scroll to browser settings
-        // setTimeout(() => {
-        //     vscode.postMessage({
-        //         type: "scrollToSettings",
-        //         text: "browser-settings-section",
-        //     })
-        // }, 300) // Give the settings panel time to open
     }
 
     const toggleInfoPopover = () => {

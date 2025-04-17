@@ -61,12 +61,6 @@ class PostHogTelemetryClient {
             MODEL_SELECTED: 'ui.model_selected',
             // Tracks when the autocomplete config menu is opened
             OPEN_TAB_AUTOCOMPLETE_CONFIG_MENU: 'ui.open_tab_autocomplete_config_menu',
-            // Tracks when the browser tool is started
-            BROWSER_TOOL_START: 'task.browser_tool_start',
-            // Tracks when the browser tool is completed
-            BROWSER_TOOL_END: 'task.browser_tool_end',
-            // Tracks when browser errors occur
-            BROWSER_ERROR: 'task.browser_error',
         },
     }
 

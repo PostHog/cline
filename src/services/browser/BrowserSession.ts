@@ -42,6 +42,8 @@ export class BrowserSession {
 
     // Telemetry tracking properties
     private sessionStartTime: number = 0
+    private logs: string[] = []
+    private lastLogTs: number = 0
     private browserActions: string[] = []
     private taskId?: string
 
@@ -64,6 +66,11 @@ export class BrowserSession {
             isRemote: this.isConnectedToRemote,
             host: this.isConnectedToRemote ? this.browserSettings.remoteBrowserHost : undefined,
         }
+    }
+
+    private log(log: string) {
+        this.logs = [...new Set([...this.logs, log])]
+        this.lastLogTs = Date.now()
     }
 
     async getDetectedChromePath(): Promise<{ path: string; isBundled: boolean }> {
@@ -105,6 +112,41 @@ export class BrowserSession {
         // if it does exist it will return the path to existing chromium
         const stats = await PCR({ downloadPath: puppeteerDir })
         return stats
+    }
+
+    private setupPageListeners() {
+        if (!this.page) {
+            return
+        }
+
+        this.page.on('console', (msg) => {
+            if (msg.type() === 'log') {
+                this.log(msg.text())
+            } else {
+                this.log(`[${msg.type()}] ${msg.text()}`)
+            }
+            this.lastLogTs = Date.now()
+        })
+
+        this.page.on('response', (response) => {
+            const request = response.request()
+            if (request.resourceType() === 'fetch' || request.resourceType() === 'xhr') {
+                this.log(`[${request.method()}] ${request.url()} (${response.status()})`)
+            }
+        })
+
+        this.page.on('pageerror', (err) => {
+            this.log(`[Page Error] ${err.toString()}`)
+            this.lastLogTs = Date.now()
+        })
+
+        this.page.on('framenavigated', async (frame) => {
+            if (frame === this.page?.mainFrame()) {
+                const url = frame.url()
+                this.log(`\n[Navigation] Navigated to ${url}\n`)
+                this.lastLogTs = Date.now()
+            }
+        })
     }
 
     async relaunchChromeDebugMode(provider: PostHogProvider) {
@@ -238,6 +280,8 @@ export class BrowserSession {
         }
 
         this.page = await this.browser?.newPage()
+
+        this.setupPageListeners()
 
         // Send telemetry for browser tool start
         if (this.taskId) {
@@ -448,34 +492,13 @@ export class BrowserSession {
             )
         }
 
-        const logs: string[] = []
-        let lastLogTs = Date.now()
-
-        const consoleListener = (msg: any) => {
-            if (msg.type() === 'log') {
-                logs.push(msg.text())
-            } else {
-                logs.push(`[${msg.type()}] ${msg.text()}`)
-            }
-            lastLogTs = Date.now()
-        }
-
-        const errorListener = (err: Error) => {
-            logs.push(`[Page Error] ${err.toString()}`)
-            lastLogTs = Date.now()
-        }
-
-        // Add the listeners
-        this.page.on('console', consoleListener)
-        this.page.on('pageerror', errorListener)
-
         try {
             await action(this.page)
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : String(err)
 
             if (!(err instanceof TimeoutError)) {
-                logs.push(`[Error] ${errorMessage}`)
+                this.log(`[Error] ${errorMessage}`)
 
                 // Capture error telemetry
                 if (this.taskId) {
@@ -488,7 +511,7 @@ export class BrowserSession {
         }
 
         // Wait for console inactivity, with a timeout
-        await pWaitFor(() => Date.now() - lastLogTs >= 500, {
+        await pWaitFor(() => Date.now() - this.lastLogTs >= 500, {
             timeout: 3_000,
             interval: 100,
         }).catch(() => {})
@@ -530,13 +553,9 @@ export class BrowserSession {
             throw new Error('Failed to take screenshot.')
         }
 
-        // this.page.removeAllListeners() <- causes the page to crash!
-        this.page.off('console', consoleListener)
-        this.page.off('pageerror', errorListener)
-
         return {
             screenshot,
-            logs: logs.join('\n'),
+            logs: this.logs.join('\n'),
             currentUrl: this.page.url(),
             currentMousePosition: this.currentMousePosition,
         }
