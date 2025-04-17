@@ -1,5 +1,4 @@
 import { PostHogTool } from '../PostHogTool'
-import type { ToolOutput } from '../../base/types'
 import type { ToolUse } from '../../../assistant-message'
 import type { CreateFeatureFlagToolInput, CreateFeatureFlagToolOutput } from '../../schema'
 import {
@@ -7,10 +6,12 @@ import {
     CreateFeatureFlagToolOutputSchema,
     BasePostHogToolConfigSchema,
 } from '../../schema'
+import type { ToolOutput } from '../../types'
 
 export class CreateFeatureFlagTool extends PostHogTool<CreateFeatureFlagToolInput, CreateFeatureFlagToolOutput> {
     autoApprove = false
     name = 'create_feature_flag'
+    sayToolName = 'createFeatureFlag' as const
     description = 'Create a new feature flag'
     inputSchema = CreateFeatureFlagToolInputSchema
     outputSchema = CreateFeatureFlagToolOutputSchema

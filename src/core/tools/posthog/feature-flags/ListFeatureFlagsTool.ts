@@ -1,13 +1,14 @@
 import { PostHogTool } from '../PostHogTool'
-import type { ToolOutput } from '../../base/types'
 import type { ToolUse } from '../../../assistant-message'
 import { BasePostHogToolConfigSchema } from '../../schema'
 import type { ListFeatureFlagsToolOutput, ListFeatureFlagsToolInput } from '../../schema'
 import { ListFeatureFlagsToolInputSchema, ListFeatureFlagsToolOutputSchema } from '../../schema'
+import type { ToolOutput } from '../../types'
 
 export class ListFeatureFlagsTool extends PostHogTool<ListFeatureFlagsToolInput, ListFeatureFlagsToolOutput> {
     autoApprove = true
     name = 'list_feature_flags'
+    sayToolName = 'listFeatureFlags' as const
     description = 'List all feature flags in the project.'
     inputSchema = ListFeatureFlagsToolInputSchema
     outputSchema = ListFeatureFlagsToolOutputSchema

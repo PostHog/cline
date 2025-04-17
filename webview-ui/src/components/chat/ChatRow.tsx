@@ -48,7 +48,7 @@ interface ChatRowProps {
     onHeightChange: (isTaller: boolean) => void
 }
 
-interface ChatRowContentProps extends Omit<ChatRowProps, 'onHeightChange'> {}
+interface ChatRowContentProps extends Omit<ChatRowProps, 'onHeightChange'> { }
 
 export const ProgressIndicator = () => (
     <div
@@ -549,6 +549,39 @@ export const ChatRowContent = ({
                             </a>
                         </div>
                     </>
+                )
+            case 'createFeatureFlag':
+                return (
+                    <div style={headerStyle}>
+                        {toolIcon('flag')}
+                        <span style={{ fontWeight: 'bold' }}>
+                            {message.type === 'ask'
+                                ? 'Max wants to create a new feature flag'
+                                : 'Max created a new feature flag'}
+                        </span>
+                    </div>
+                )
+            case 'updateFeatureFlag':
+                return (
+                    <div style={headerStyle}>
+                        {toolIcon('flag')}
+                        <span style={{ fontWeight: 'bold' }}>
+                            {message.type === 'ask'
+                                ? 'Max wants to update a feature flag'
+                                : 'Max updated a feature flag'}
+                        </span>
+                    </div>
+                )
+            case 'listFeatureFlags':
+                return (
+                    <div style={headerStyle}>
+                        {toolIcon('flag')}
+                        <span style={{ fontWeight: 'bold' }}>
+                            {message.type === 'ask'
+                                ? 'Max wants access to read feature flags in your project'
+                                : 'Max retrieved feature flags from your project'}
+                        </span>
+                    </div>
                 )
             default:
                 let params: Record<string, any> = {}

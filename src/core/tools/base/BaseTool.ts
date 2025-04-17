@@ -2,10 +2,12 @@ import { z } from 'zod'
 import { ToolInputValidationError, ToolOutputValidationError } from './errors'
 import type { ToolUse } from '../../assistant-message'
 import type { ToolInput, ToolOutput } from '../types'
+import type { PostHogSayTool } from '../../../shared/ExtensionMessage'
 
 export abstract class BaseTool<TInput, TOutput> {
     abstract autoApprove: boolean
     abstract readonly name: string
+    abstract readonly sayToolName: PostHogSayTool['tool']
     abstract readonly description: string
     abstract readonly inputSchema: z.ZodSchema<TInput>
     abstract readonly outputSchema: z.ZodSchema<TOutput>
