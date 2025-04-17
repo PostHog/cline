@@ -31,17 +31,14 @@ const copyNativeModules = {
         build.onEnd(() => {
             const distDir = path.join(__dirname, 'dist')
             const nodeModulesDir = path.join(__dirname, 'node_modules')
-
             // Copy SQLite3 binary
-            const sqliteBinaryPath = require.resolve('sqlite3')
-            const sqliteBinaryDir = path.dirname(sqliteBinaryPath)
-            const binaryFiles = fs.readdirSync(sqliteBinaryDir).filter((file) => file.endsWith('.node'))
-
-            binaryFiles.forEach((file) => {
-                const sourcePath = path.join(sqliteBinaryDir, file)
-                const targetPath = path.join(distDir, file)
-                fs.copyFileSync(sourcePath, targetPath)
-            })
+            const sourcePath = 'node_modules/sqlite3/build/Release/node_sqlite3.node'
+            const targetDir = path.join(distDir, 'build', 'Release')
+            const targetPath = path.join(targetDir, 'node_sqlite3.node')
+            // There needs to be a dummy package.json so that sqlite3 bindings are properly resolved - apparently
+            fs.writeFileSync(path.join(distDir, 'package.json'), JSON.stringify({ name: 'posthog-dummy' }, null, 2))
+            fs.mkdirSync(targetDir, { recursive: true })
+            fs.copyFileSync(sourcePath, targetPath)
         })
     },
 }
@@ -96,7 +93,7 @@ const extensionConfig = {
     sourcesContent: false,
     platform: 'node',
     outfile: 'dist/extension.js',
-    external: ['vscode', 'sqlite3'],
+    external: ['vscode'],
     target: 'node16',
     mainFields: ['main', 'module'],
 }
