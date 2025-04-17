@@ -1,6 +1,5 @@
 import { AutocompleteCodeSnippet, AutocompleteSnippetType } from '../types'
 import { AutocompleteHelperVars } from '../util/AutocompleteHelperVars'
-
 import { ImportDefinitionsService } from './ImportDefinitionsService'
 import { RootPathContextService } from './root-path-context/RootPathContextService'
 

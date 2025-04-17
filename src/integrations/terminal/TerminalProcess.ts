@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events'
-import { stripAnsi } from './ansiUtils'
 import * as vscode from 'vscode'
+
+import { stripAnsi } from './ansiUtils'
 
 export interface TerminalProcessEvents {
     line: [line: string]

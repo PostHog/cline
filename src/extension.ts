@@ -1,14 +1,14 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
-import * as vscode from 'vscode'
-import { Logger } from './services/logging/Logger'
-import { createPostHogAPI } from './exports'
 import './utils/path' // necessary to have access to String.prototype.toPosix
-import { DIFF_VIEW_URI_SCHEME } from './integrations/editor/DiffViewProvider'
+
 import assert from 'node:assert'
-import { telemetryService } from './services/telemetry/TelemetryService'
-import { PostHogProvider } from './core/webview/PostHogProvider'
+import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
+
+import * as vscode from 'vscode'
+
+import { CodeAnalyzer } from './analysis/codeAnalyzer'
+import { PostHogApiProvider } from './api/provider'
 import { CompletionProvider } from './autocomplete/CompletionProvider'
 import {
     getStatusBarStatus,
@@ -17,9 +17,12 @@ import {
     setupStatusBar,
     StatusBarStatus,
 } from './autocomplete/statusBar'
-import { PostHogApiProvider } from './api/provider'
 import { codestralDefaultModelId } from './shared/api'
-import { CodeAnalyzer } from './analysis/codeAnalyzer'
+import { PostHogProvider } from './core/webview/PostHogProvider'
+import { createPostHogAPI } from './exports'
+import { DIFF_VIEW_URI_SCHEME } from './integrations/editor/DiffViewProvider'
+import { Logger } from './services/logging/Logger'
+import { telemetryService } from './services/telemetry/TelemetryService'
 import { debounce } from './utils/debounce'
 import { ConfigManager } from './shared/conf'
 

@@ -1,4 +1,5 @@
 import axios, { type AxiosError } from 'axios'
+
 import { BaseTool } from '../base/BaseTool'
 import type { PostHogToolConfig } from '../types'
 

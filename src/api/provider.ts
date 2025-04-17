@@ -11,6 +11,7 @@ import {
     OpenAIModelId,
     openaiModels,
 } from '../shared/api'
+
 import { allModels } from '../shared/api'
 
 export class PostHogApiProvider {

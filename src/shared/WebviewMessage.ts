@@ -1,11 +1,10 @@
+import { PostHogUsage } from '../analysis/codeAnalyzer'
 import { ApiConfiguration } from './api'
 import { AutoApprovalSettings } from './AutoApprovalSettings'
 import { BrowserSettings } from './BrowserSettings'
-import { ChatSettings } from './ChatSettings'
-import { UserInfo } from './UserInfo'
 import { ChatContent } from './ChatContent'
+import { ChatSettings } from './ChatSettings'
 import { TelemetrySetting } from './TelemetrySetting'
-import { PostHogUsage } from '../analysis/codeAnalyzer'
 
 export interface WebviewMessage {
     type:

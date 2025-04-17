@@ -1,11 +1,12 @@
-import { ShellDetector } from '../../utils/shell'
 import os from 'os'
 import osName from 'os-name'
+
 import { McpHub } from '../../services/mcp/McpHub'
 import { BrowserSettings } from '../../shared/BrowserSettings'
+import { ShellDetector } from '../../utils/shell'
 import { CreateFeatureFlagTool } from '../tools/posthog/feature-flags/CreateFeatureFlagTool'
-import { UpdateFeatureFlagTool } from '../tools/posthog/feature-flags/UpdateFeatureFlagTool'
 import { ListFeatureFlagsTool } from '../tools/posthog/feature-flags/ListFeatureFlagsTool'
+import { UpdateFeatureFlagTool } from '../tools/posthog/feature-flags/UpdateFeatureFlagTool'
 
 export const SYSTEM_PROMPT = async (
     cwd: string,

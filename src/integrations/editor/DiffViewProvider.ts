@@ -1,12 +1,13 @@
-import * as vscode from 'vscode'
-import * as path from 'path'
+import * as diff from 'diff'
 import * as fs from 'fs/promises'
+import * as path from 'path'
+import * as vscode from 'vscode'
+
+import { formatResponse } from '../../core/prompts/responses'
 import { createDirectoriesForFile } from '../../utils/fs'
 import { arePathsEqual } from '../../utils/path'
-import { formatResponse } from '../../core/prompts/responses'
-import { DecorationController } from './DecorationController'
-import * as diff from 'diff'
 import { diagnosticsToProblemsString, getNewDiagnostics } from '../diagnostics'
+import { DecorationController } from './DecorationController'
 
 export const DIFF_VIEW_URI_SCHEME = 'posthog-diff'
 

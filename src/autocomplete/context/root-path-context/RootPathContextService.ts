@@ -1,13 +1,12 @@
 import { createHash } from 'crypto'
-
 import { LRUCache } from 'lru-cache'
 import Parser from 'web-tree-sitter'
 
-import { getFullLanguageName, getQueryForFile, IGNORE_PATH_PATTERNS, LanguageName } from '../../util/treeSitter'
-import { AstPath } from '../../util/ast'
-import { ImportDefinitionsService } from '../ImportDefinitionsService'
-import { AutocompleteCodeSnippet, AutocompleteSnippetType, AutocompleteSnippetWithScore } from '../../types'
 import { gotoDefinition, readRangeInFile } from '../../../utils/vscode'
+import { AutocompleteCodeSnippet, AutocompleteSnippetType, AutocompleteSnippetWithScore } from '../../types'
+import { AstPath } from '../../util/ast'
+import { getFullLanguageName, getQueryForFile, IGNORE_PATH_PATTERNS, LanguageName } from '../../util/treeSitter'
+import { ImportDefinitionsService } from '../ImportDefinitionsService'
 
 export class RootPathContextService {
     private cache = new LRUCache<string, AutocompleteSnippetWithScore[]>({

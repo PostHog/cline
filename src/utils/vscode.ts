@@ -1,7 +1,8 @@
-import * as vscode from 'vscode'
-import * as URI from 'uri-js'
-import { RangeInFile, Location, Range } from '../autocomplete/types'
 import { machineIdSync } from 'node-machine-id'
+import * as URI from 'uri-js'
+import * as vscode from 'vscode'
+
+import { Location, Range, RangeInFile } from '../autocomplete/types'
 
 const MAX_BYTES = 100000
 
