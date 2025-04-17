@@ -1,18 +1,22 @@
 import * as vscode from 'vscode'
 import { createHmac, randomBytes, createCipheriv, createDecipheriv } from 'node:crypto'
+import { Logger } from '../../services/logging/Logger'
 
 export const ENCRYPTION_KEY_NAME = 'encryption-key'
 
 export class PathObfuscator {
+    private initPromise: Promise<void> | true
     private readonly ALGO = 'aes-256-gcm'
     private readonly NONCE_LEN = 6
     private readonly TAG_LEN = 16
 
     private encryptionKey: Buffer | null = null
 
-    constructor(private readonly context: vscode.ExtensionContext) {}
+    constructor(private readonly context: vscode.ExtensionContext) {
+        this.initPromise = this.init()
+    }
 
-    async init() {
+    private async init() {
         const existingKey = await this.context.secrets.get(ENCRYPTION_KEY_NAME)
         if (existingKey) {
             this.encryptionKey = Buffer.from(existingKey, 'hex')
@@ -25,15 +29,31 @@ export class PathObfuscator {
 
             this.encryptionKey = Buffer.from(newKey, 'hex')
         }
+        this.initPromise = true
     }
 
-    obfuscatePath(path: string): string {
+    private async awaitInit() {
+        try {
+            if (this.initPromise === true) {
+                return
+            }
+            await this.initPromise
+        } catch (error) {
+            Logger.log(`Error initializing path obfuscator: ${error}`)
+        }
+    }
+
+    async obfuscatePath(path: string): Promise<string> {
+        await this.awaitInit()
+
         // split by / or . but *keep* the delimiters in the output
         const parts = path.split(/([/.])/) // ["src", "/", "utils", ".", "ts"]
         return parts.map((p) => (p === '/' || p === '.' ? p : this.encryptSegment(p))).join('')
     }
 
-    revealPath(obfuscated: string): string {
+    async revealPath(obfuscated: string): Promise<string> {
+        await this.awaitInit()
+
         // We can split only on "/" because "." was kept as delimiter above
         return obfuscated
             .split('/')

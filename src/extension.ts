@@ -22,6 +22,7 @@ import { codestralDefaultModelId } from './shared/api'
 import { CodeAnalyzer } from './analysis/codeAnalyzer'
 import { debounce } from './utils/debounce'
 import { CodebaseSyncIntegration } from './integrations/indexing'
+import { PathObfuscator } from './integrations/encryption'
 
 /*
 Built using https://github.com/microsoft/vscode-webview-ui-toolkit
@@ -43,9 +44,22 @@ export async function activate(context: vscode.ExtensionContext) {
     Logger.initialize(outputChannel)
     Logger.log('PostHog extension activated')
 
-    const sidebarProvider = new PostHogProvider(context, outputChannel)
-
     vscode.commands.executeCommand('setContext', 'posthog.isDevMode', IS_DEV && IS_DEV === 'true')
+
+    const sidebarProvider = new PostHogProvider(context, outputChannel)
+    const state = await sidebarProvider.getState()
+
+    const pathObfuscator = new PathObfuscator(context)
+    const codebaseSyncIntegration = new CodebaseSyncIntegration(
+        context,
+        {
+            projectId: 1,
+            apiKey: state.apiConfiguration.posthogApiKey!,
+            host: 'http://localhost:8010',
+        },
+        pathObfuscator
+    )
+    codebaseSyncIntegration.sync()
 
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(PostHogProvider.sideBarId, sidebarProvider, {
@@ -145,7 +159,6 @@ export async function activate(context: vscode.ExtensionContext) {
     )
 
     // Tab autocomplete
-    const state = await sidebarProvider.getState()
     const autocompleteEnabled = state.enableTabAutocomplete
 
     // Register inline completion provider
@@ -196,17 +209,6 @@ export async function activate(context: vscode.ExtensionContext) {
         context.subscriptions.push(typeDisposable)
     }
     registerCopyBufferSpy(context)
-
-    // Codebase sync
-    const codebaseSyncIntegration = new CodebaseSyncIntegration(context, {
-        projectId: 1,
-        apiKey: state.apiConfiguration.posthogApiKey!,
-        host: 'http://localhost:8010',
-    })
-
-    codebaseSyncIntegration.init().then(() => {
-        return codebaseSyncIntegration.sync()
-    })
 
     /*
 	We use the text document content provider API to show the left side for diff view by creating a virtual document for the original content. This makes it readonly so users know to edit the right side if they want to keep their changes.
@@ -482,8 +484,9 @@ export async function activate(context: vscode.ExtensionContext) {
     )
 
     // Set context for testing
-    ;(global as any).testExtensionContext = context
-    console.log(process.env.NODE_ENV)
+    if (process.env.NODE_ENV === 'test') {
+        ;(global as any).testExtensionContext = context
+    }
 
     return createPostHogAPI(outputChannel, sidebarProvider)
 }
