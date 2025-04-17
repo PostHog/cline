@@ -32,6 +32,9 @@ export const getDefaultExclusions = (lfsPatterns: string[] = []): string[] => [
     // Environment and Config Files
     ...getConfigFilePatterns(),
 
+    // Git Ignore Files
+    ...getGitIgnorePatterns(),
+
     // Large Data Files
     ...getLargeDataFilePatterns(),
 
@@ -43,6 +46,9 @@ export const getDefaultExclusions = (lfsPatterns: string[] = []): string[] => [
 
     // Log Files
     ...getLogFilePatterns(),
+
+    // Miscellaneous Files
+    ...getMiscellaneousPatterns(),
 
     ...lfsPatterns,
 ]
@@ -100,7 +106,7 @@ function getMediaFilePatterns(): string[] {
         '*.webp',
         '*.tiff',
         '*.tif',
-        // "*.svg",
+        '*.svg',
         '*.raw',
         '*.heic',
         '*.avif',
@@ -130,6 +136,12 @@ function getMediaFilePatterns(): string[] {
         '*.webm',
         '*.wma',
         '*.wmv',
+        '*.ttf',
+        '*.woff',
+        '*.woff2',
+        '*.eot',
+        '*.pdf',
+        '*.wav',
     ]
 }
 
@@ -147,6 +159,8 @@ function getCacheFilePatterns(): string[] {
         '*.dump',
         '*.eslintcache',
         '*.lock',
+        '*-lock.json',
+        '*.lockb',
         '*.log',
         '*.old',
         '*.part',
@@ -167,7 +181,15 @@ function getCacheFilePatterns(): string[] {
  * @returns Array of glob patterns for config files
  */
 function getConfigFilePatterns(): string[] {
-    return ['*.env*', '*.local', '*.development', '*.production']
+    return ['*.env*', '*.local', '*.development', '*.production', 'config.json', 'config.yaml']
+}
+
+/**
+ * Returns patterns for git ignore files
+ * @returns Array of glob patterns for git ignore files
+ */
+function getGitIgnorePatterns(): string[] {
+    return ['*.gitignore', '*.gitkeep', '*.posthogignore']
 }
 
 /**
@@ -178,6 +200,7 @@ function getLargeDataFilePatterns(): string[] {
     return [
         '*.zip',
         '*.tar',
+        '*.tgz',
         '*.gz',
         '*.rar',
         '*.7z',
@@ -187,7 +210,9 @@ function getLargeDataFilePatterns(): string[] {
         '*.dll',
         '*.so',
         '*.dylib',
+        '*.lib',
         '*.dat',
+        '*.wasm',
         '*.dmg',
         '*.msi',
     ]
@@ -220,6 +245,7 @@ function getDatabaseFilePatterns(): string[] {
         '*.rdb',
         '*.sql',
         '*.sqlite',
+        '*.pqt',
     ]
 }
 
@@ -265,4 +291,29 @@ function getGeospatialPatterns(): string[] {
  */
 function getLogFilePatterns(): string[] {
     return ['*.error', '*.log', '*.logs', '*.npm-debug.log*', '*.out', '*.stdout', 'yarn-debug.log*', 'yarn-error.log*']
+}
+
+/**
+ * Returns patterns for miscellaneous files
+ * @returns Array of glob patterns for miscellaneous files
+ */
+function getMiscellaneousPatterns(): string[] {
+    return [
+        '*.o',
+        '*.o.d',
+        '*.a',
+        '*.ncb',
+        '*.sdf',
+        '*.cur',
+        '*.jar',
+        '*.onnx',
+        '*.plist',
+        '*.profraw',
+        '*.gcda',
+        '*.gcno',
+        'go.sum',
+        '*.uasset',
+        '*.pag',
+        '*.jsonl',
+    ]
 }
