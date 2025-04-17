@@ -4,6 +4,7 @@ import { Logger } from '../../services/logging/Logger'
 import { CodebaseTag } from './codebase-tag'
 import { MerkleTreeWalker } from './walker'
 import { TreeNode } from './types'
+import { PathObfuscator } from '../encryption'
 
 export interface Codebase {
     id: string
@@ -18,21 +19,24 @@ export interface ExtensionConfig {
 }
 
 export class CodebaseSyncIntegration {
+    private initPromise: Promise<void> | true
     private context: vscode.ExtensionContext
     private config: ExtensionConfig
+    private pathObfuscator: PathObfuscator
 
     private workspaceSyncServices: Map<string, WorkspaceSync>
 
-    initialized: boolean = false
-    syncLocked: boolean = false
+    private syncLocked: boolean = false
 
-    constructor(context: vscode.ExtensionContext, config: ExtensionConfig) {
+    constructor(context: vscode.ExtensionContext, config: ExtensionConfig, pathObfuscator: PathObfuscator) {
         this.context = context
         this.config = config
         this.workspaceSyncServices = new Map()
+        this.pathObfuscator = pathObfuscator
+        this.initPromise = this.init()
     }
 
-    async init() {
+    private async init() {
         const codebaseTag = new CodebaseTag()
         const codebaseTags = await codebaseTag.getTags()
 
@@ -50,15 +54,49 @@ export class CodebaseSyncIntegration {
         )
 
         this.workspaceSyncServices = new Map(services)
-        this.initialized = true
+        this.initPromise = true
+    }
+
+    private async awaitInit() {
+        try {
+            if (this.initPromise === true) {
+                return
+            }
+            await this.initPromise
+        } catch (error) {
+            Logger.log(`Error initializing codebase sync integration: ${error}`)
+            throw error
+        }
     }
 
     async sync() {
-        if (!this.initialized || this.syncLocked) {
+        await this.awaitInit()
+
+        if (this.syncLocked) {
             return
         }
 
         this.syncLocked = true
+
+        const services = Array.from(this.workspaceSyncServices.values())
+        const divergingFiles = await Promise.all(
+            services.map(async (workspaceSyncService) => {
+                const files = []
+                for await (const file of workspaceSyncService.retrieveDivergingFiles()) {
+                    files.push(file)
+                }
+
+                return files
+            })
+        )
+
+        const fileCount = divergingFiles.reduce((acc, files) => acc + files.length, 0)
+        if (!fileCount) {
+            this.syncLocked = false
+            return
+        }
+
+        let processedCount = 0
 
         const fileSyncQueue = new PQueue({
             concurrency: 1,
@@ -75,25 +113,6 @@ export class CodebaseSyncIntegration {
                 title: 'Codebase Sync',
             },
             async (progress) => {
-                progress.report({
-                    message: 'Looking for diverging files...',
-                })
-
-                const services = Array.from(this.workspaceSyncServices.values())
-                const divergingFiles = await Promise.all(
-                    services.map(async (workspaceSyncService) => {
-                        const files = []
-                        for await (const file of workspaceSyncService.retrieveDivergingFiles()) {
-                            files.push(file)
-                        }
-
-                        return files
-                    })
-                )
-
-                const fileCount = divergingFiles.reduce((acc, files) => acc + files.length, 0)
-                let processedCount = 0
-
                 function reportProgress() {
                     progress.report({
                         message: `Uploading file ${processedCount} of ${fileCount}...`,
@@ -111,11 +130,15 @@ export class CodebaseSyncIntegration {
                         fileSyncQueue
                             .add(
                                 async () => {
-                                    const content = await file.read()
+                                    const [content, obfuscatedPath] = await Promise.all([
+                                        file.read(),
+                                        this.pathObfuscator.obfuscatePath(file.path),
+                                    ])
+
                                     await workspaceSyncService.uploadArtifact({
                                         id: file.hash,
                                         extension: file.extension,
-                                        path: file.path,
+                                        path: obfuscatedPath,
                                         content: content.toString(),
                                     })
 
