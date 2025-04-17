@@ -21,6 +21,7 @@ import { PostHogApiProvider } from './api/provider'
 import { codestralDefaultModelId } from './shared/api'
 import { CodeAnalyzer } from './analysis/codeAnalyzer'
 import { debounce } from './utils/debounce'
+import { CodebaseSyncIntegration } from './integrations/indexing'
 
 /*
 Built using https://github.com/microsoft/vscode-webview-ui-toolkit
@@ -195,6 +196,17 @@ export async function activate(context: vscode.ExtensionContext) {
         context.subscriptions.push(typeDisposable)
     }
     registerCopyBufferSpy(context)
+
+    // Codebase sync
+    const codebaseSyncIntegration = new CodebaseSyncIntegration(context, {
+        projectId: 1,
+        apiKey: state.apiConfiguration.posthogApiKey!,
+        host: 'http://localhost:8010',
+    })
+
+    codebaseSyncIntegration.init().then(() => {
+        return codebaseSyncIntegration.sync()
+    })
 
     /*
 	We use the text document content provider API to show the left side for diff view by creating a virtual document for the original content. This makes it readonly so users know to edit the right side if they want to keep their changes.

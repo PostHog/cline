@@ -57,9 +57,14 @@ export class CodebaseSyncIntegration {
         }
 
         const divergingFiles = await Promise.all(
-            Array.from(this.workspaceSyncServices.values()).map((workspaceSync) =>
-                workspaceSync.retrieveDivergingFiles()
-            )
+            Array.from(this.workspaceSyncServices.values()).map(async (workspaceSync) => {
+                const files = []
+                for await (const file of workspaceSync.retrieveDivergingFiles()) {
+                    files.push(file)
+                }
+
+                return files
+            })
         )
 
         console.log(divergingFiles)
@@ -110,7 +115,7 @@ class WorkspaceSync {
             return
         }
 
-        const merkleTree = await new MerkleTreeWalker(this.workspace.fsPath).buildTree()
+        const merkleTree = await new MerkleTreeWalker(this.workspace.toString()).buildTree()
         const treeNodes = Array.from(merkleTree.toTreeNodes())
         const status = await this.checkSyncedCodebase(treeNodes)
 
@@ -128,7 +133,7 @@ class WorkspaceSync {
     }
 
     private async createCodebase(): Promise<string> {
-        const url = new URL(`/api/v1/projects/${this.config.projectId}/codebases`, this.config.host)
+        const url = new URL(`/api/projects/${this.config.projectId}/codebases`, this.config.host)
         const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -142,7 +147,7 @@ class WorkspaceSync {
 
     private async checkSyncedCodebase(treeNodes: TreeNode[]) {
         const url = new URL(
-            `/api/v1/projects/${this.config.projectId}/codebases/${this.codebaseId}/sync`,
+            `/api/projects/${this.config.projectId}/codebases/${this.codebaseId}/sync`,
             this.config.host
         )
         const response = await fetch(url, {
