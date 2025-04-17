@@ -1,7 +1,8 @@
-import type { ToolInput, ToolOutput } from './types'
 import { z } from 'zod'
 import { ToolInputValidationError, ToolOutputValidationError } from './errors'
 import type { ToolUse } from '../../assistant-message'
+import type { ToolInput, ToolOutput } from '../types'
+
 export abstract class BaseTool<TInput, TOutput> {
     abstract autoApprove: boolean
     abstract readonly name: string

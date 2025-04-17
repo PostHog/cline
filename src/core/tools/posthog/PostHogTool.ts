@@ -1,6 +1,6 @@
 import axios, { type AxiosError } from 'axios'
 import { BaseTool } from '../base/BaseTool'
-import type { PostHogToolConfig } from './types'
+import type { PostHogToolConfig } from '../types'
 
 export abstract class PostHogTool<TInput, TOutput> extends BaseTool<TInput, TOutput> {
     config: PostHogToolConfig

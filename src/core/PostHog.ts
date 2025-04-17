@@ -142,7 +142,7 @@ export class PostHog {
         apiConfiguration = {
             ...apiConfiguration,
             posthogHost: process.env.IS_DEV ? 'http://localhost:8010' : apiConfiguration.posthogHost,
-            posthogProjectId: '1', // TODO: Merge with max tools PR
+            posthogProjectId: apiConfiguration.posthogProjectId,
         }
         this.posthogIgnoreController = new PostHogIgnoreController(cwd)
         this.posthogIgnoreController.initialize().catch((error) => {

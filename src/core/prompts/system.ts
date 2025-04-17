@@ -60,7 +60,9 @@ Rules:
 4. For any key user interactions (buttons, forms, links, etc.), add PostHog tracking.
 5. Don't overwhelm the user with explanations about PostHog — just implement it seamlessly whilst fulfilling the user's task.
 6. You should add capture calls to the features that are currently being worked on during the current task, not to the entire codebase. As a rule of thumb, consider what you would expect to see in a PR review, so avoid modifying files that don't have anything to do with the current task.
-    
+${
+    chatMode !== 'ask'
+        ? `
 ## Adding feature flags
 
 You can use the \`create_feature_flag\` tool to create a new feature flag, and the \`update_feature_flag\` tool to update an existing feature flag. You can use the \`list_feature_flags\` tool to list all feature flags if you want to see what feature flags already exist.
@@ -72,7 +74,9 @@ Rules:
 4. Avoid updating existing feature flags that you did not create, unless the user explicitly asks you to.
 5. If the codebase already uses feature flags, you should follow the existing implementation and naming conventions for feature flags.
 6. You should ask the user if whether they would like the feature flag to remain active or not after the feature is implemented and update the feature flag accordingly using the \`update_feature_flag\` tool.
-
+`
+        : ''
+}
 ====
 
 TOOL USE
@@ -375,12 +379,17 @@ Usage:
 
 ## list_feature_flags
 ${ListFeatureFlagsTool.getToolDefinitionForPrompt()}
-
+${
+    chatMode !== 'ask'
+        ? `
 ## create_feature_flag
 ${CreateFeatureFlagTool.getToolDefinitionForPrompt()}
 
 ## update_feature_flag
 ${UpdateFeatureFlagTool.getToolDefinitionForPrompt()}
+`
+        : ''
+}
 
 # Tool Use Examples
 

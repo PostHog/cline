@@ -2,19 +2,7 @@ import type { BaseTool } from './base/BaseTool'
 import { CreateFeatureFlagTool } from './posthog/feature-flags/CreateFeatureFlagTool'
 import { ListFeatureFlagsTool } from './posthog/feature-flags/ListFeatureFlagsTool'
 import { UpdateFeatureFlagTool } from './posthog/feature-flags/UpdateFeatureFlagTool'
-import type { PostHogToolConfig, Tool } from './posthog/types'
-
-type ToolManagerConfig = Partial<PostHogToolConfig>
-
-type ToolMapping = {
-    create_feature_flag: CreateFeatureFlagTool
-    update_feature_flag: UpdateFeatureFlagTool
-    list_feature_flags: ListFeatureFlagsTool
-}
-
-type ToolName = keyof ToolMapping
-
-type ToolMap = ReadonlyMap<ToolName, BaseTool<any, any> | undefined>
+import type { PostHogToolConfig, ToolManagerConfig, ToolMap, ToolMapping, ToolName } from './types'
 
 export class ToolManager {
     private tools: ToolMap

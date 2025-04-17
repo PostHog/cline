@@ -1,31 +1,14 @@
 import { PostHogTool } from '../PostHogTool'
-import { z } from 'zod'
 import type { ToolOutput } from '../../base/types'
 import type { ToolUse } from '../../../assistant-message'
-import { BasePostHogToolConfigSchema } from '../schema'
-
-export const ListFeatureFlagsToolInputSchema = z.object({
-    query: z
-        .object({
-            active: z.boolean().optional(),
-            search: z.string().optional(),
-        })
-        .optional(),
-})
-
-export const ListFeatureFlagsToolOutputSchema = z.object({
-    results: z.array(z.object({}).passthrough()),
-    count: z.number(),
-})
-
-export type ListFeatureFlagsToolInput = z.infer<typeof ListFeatureFlagsToolInputSchema>
-export type ListFeatureFlagsToolOutput = z.infer<typeof ListFeatureFlagsToolOutputSchema>
+import { BasePostHogToolConfigSchema } from '../../schema'
+import type { ListFeatureFlagsToolOutput, ListFeatureFlagsToolInput } from '../../schema'
+import { ListFeatureFlagsToolInputSchema, ListFeatureFlagsToolOutputSchema } from '../../schema'
 
 export class ListFeatureFlagsTool extends PostHogTool<ListFeatureFlagsToolInput, ListFeatureFlagsToolOutput> {
     autoApprove = true
     name = 'list_feature_flags'
-    description =
-        'List all feature flags in the project. Supports filtering by active status, creator, type, and search terms.'
+    description = 'List all feature flags in the project.'
     inputSchema = ListFeatureFlagsToolInputSchema
     outputSchema = ListFeatureFlagsToolOutputSchema
 
@@ -46,8 +29,6 @@ export class ListFeatureFlagsTool extends PostHogTool<ListFeatureFlagsToolInput,
             const queryString = queryParams.toString()
 
             const endpoint = `projects/${this.config.posthogProjectId}/feature_flags/${queryString ? '?' + queryString : ''}`
-
-            console.log('endpoint', endpoint)
 
             const data = await this.makeRequest<unknown>(endpoint, 'GET')
 
