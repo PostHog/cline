@@ -24,6 +24,9 @@ export const toolUseNames = [
     'attempt_completion',
     'search_docs',
     'add_capture_calls',
+    'create_feature_flag',
+    'update_feature_flag',
+    'list_feature_flags',
     'create_and_query_insight',
 ] as const
 
@@ -55,6 +58,8 @@ export const toolParamNames = [
     'query',
     'paths',
     'tracking_conventions',
+    'id',
+    'body',
     'insight_type',
     'query_description',
 ] as const
