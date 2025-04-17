@@ -3317,26 +3317,6 @@ export class PostHog {
                         }
                     }
                     case 'attempt_completion': {
-                        /*
-                        this.consecutiveMistakeCount = 0
-                        let resultToSend = result
-                        if (command) {
-                            await this.say("completion_result", resultToSend)
-                            // TODO: currently we don't handle if this command fails, it could be useful to let posthog know and retry
-                            const [didUserReject, commandResult] = await this.executeCommand(command, true)
-                            // if we received non-empty string, the command was rejected or failed
-                            if (commandResult) {
-                                return [didUserReject, commandResult]
-                            }
-                            resultToSend = ""
-                        }
-                        const { response, text, images } = await this.ask("completion_result", resultToSend) // this prompts webview to show 'new task' button, and enable text input (which would be the 'text' here)
-                        if (response === "yesButtonClicked") {
-                            return [false, ""] // signals to recursive loop to stop (for now this never happens since yesButtonClicked will trigger a new task)
-                        }
-                        await this.say("user_feedback", text ?? "", images)
-                        return [
-                        */
                         const result: string | undefined = block.params.result
                         const command: string | undefined = block.params.command
 
@@ -3422,7 +3402,12 @@ export class PostHog {
                                 if (command) {
                                     if (lastMessage && lastMessage.ask !== 'command') {
                                         // havent sent a command message yet so first send completion_result then command
-                                        await this.say('completion_result', result, undefined, false)
+                                        await this.say(
+                                            'completion_result',
+                                            removeClosingTag('result', result),
+                                            undefined,
+                                            false
+                                        )
                                         await this.saveCheckpoint(true)
                                         await addNewChangesFlagToLastCompletionResultMessage()
                                         telemetryService.captureTaskCompleted(this.taskId)
@@ -3445,7 +3430,12 @@ export class PostHog {
                                     // user didn't reject, but the command may have output
                                     commandResult = execCommandResult
                                 } else {
-                                    await this.say('completion_result', result, undefined, false)
+                                    await this.say(
+                                        'completion_result',
+                                        removeClosingTag('result', result),
+                                        undefined,
+                                        false
+                                    )
                                     await this.saveCheckpoint(true)
                                     await addNewChangesFlagToLastCompletionResultMessage()
                                     telemetryService.captureTaskCompleted(this.taskId)
