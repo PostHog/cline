@@ -48,7 +48,7 @@ interface ChatRowProps {
     onHeightChange: (isTaller: boolean) => void
 }
 
-interface ChatRowContentProps extends Omit<ChatRowProps, 'onHeightChange'> { }
+interface ChatRowContentProps extends Omit<ChatRowProps, 'onHeightChange'> {}
 
 export const ProgressIndicator = () => (
     <div
@@ -553,7 +553,7 @@ export const ChatRowContent = ({
             case 'createFeatureFlag':
                 return (
                     <div style={headerStyle}>
-                        {toolIcon('flag')}
+                        {toolIcon('add')}
                         <span style={{ fontWeight: 'bold' }}>
                             {message.type === 'ask'
                                 ? 'Max wants to create a new feature flag'
@@ -564,7 +564,7 @@ export const ChatRowContent = ({
             case 'updateFeatureFlag':
                 return (
                     <div style={headerStyle}>
-                        {toolIcon('flag')}
+                        {toolIcon('edit')}
                         <span style={{ fontWeight: 'bold' }}>
                             {message.type === 'ask'
                                 ? 'Max wants to update a feature flag'
@@ -575,49 +575,13 @@ export const ChatRowContent = ({
             case 'listFeatureFlags':
                 return (
                     <div style={headerStyle}>
-                        {toolIcon('flag')}
+                        {toolIcon('search')}
                         <span style={{ fontWeight: 'bold' }}>
                             {message.type === 'ask'
                                 ? 'Max wants access to read feature flags in your project'
                                 : 'Max retrieved feature flags from your project'}
                         </span>
                     </div>
-                )
-            default:
-                let params: Record<string, any> = {}
-                try {
-                    if (tool.content) {
-                        params = JSON.parse(tool.content) || {}
-                    }
-                } catch (e) {
-                    // If content isn't JSON or doesn't have params, show empty object
-                    params = {}
-                }
-
-                return (
-                    <>
-                        <div style={headerStyle}>
-                            {toolIcon('symbol-property')}
-                            <span style={{ fontWeight: 'bold' }}>
-                                Max wants to use the tool `{tool.tool}` with the following arguments:
-                            </span>
-                        </div>
-                        <div
-                            style={{
-                                background: 'var(--vscode-textCodeBlock-background)',
-                                borderRadius: '3px',
-                                padding: '8px 10px',
-                                marginTop: '8px',
-                            }}
-                        >
-                            <CodeAccordian
-                                code={JSON.stringify(params, null, 2)}
-                                language="json"
-                                isExpanded={true}
-                                onToggleExpand={onToggleExpand}
-                            />
-                        </div>
-                    </>
                 )
         }
     }
