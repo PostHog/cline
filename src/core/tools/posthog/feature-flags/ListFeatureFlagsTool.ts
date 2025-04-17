@@ -1,9 +1,9 @@
-import { PostHogTool } from '../PostHogTool'
 import type { ToolUse } from '../../../assistant-message'
+import type { ListFeatureFlagsToolInput, ListFeatureFlagsToolOutput } from '../../schema'
 import { BasePostHogToolConfigSchema } from '../../schema'
-import type { ListFeatureFlagsToolOutput, ListFeatureFlagsToolInput } from '../../schema'
 import { ListFeatureFlagsToolInputSchema, ListFeatureFlagsToolOutputSchema } from '../../schema'
 import type { ToolOutput } from '../../types'
+import { PostHogTool } from '../PostHogTool'
 
 export class ListFeatureFlagsTool extends PostHogTool<ListFeatureFlagsToolInput, ListFeatureFlagsToolOutput> {
     autoApprove = true

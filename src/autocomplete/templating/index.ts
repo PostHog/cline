@@ -1,15 +1,14 @@
 import Handlebars from 'handlebars'
 
+import { getUriPathBasename } from '../../utils/uri'
 import { AutocompleteLanguageInfo } from '../constants/AutocompleteLanguageInfo'
-import { AutocompleteHelperVars } from '../util/AutocompleteHelperVars'
-
 import { SnippetPayload } from '../snippets'
+import { CompletionOptions } from '../types'
+import { AutocompleteHelperVars } from '../util/AutocompleteHelperVars'
+import { codestralMultifileFimTemplate } from './AutocompleteTemplate'
 import { getSnippets } from './filtering'
 import { formatSnippets } from './formatting'
 import { getStopTokens } from './getStopTokens'
-import { getUriPathBasename } from '../../utils/uri'
-import { codestralMultifileFimTemplate } from './AutocompleteTemplate'
-import { CompletionOptions } from '../types'
 
 function renderStringTemplate(
     template: string,

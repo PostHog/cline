@@ -1,5 +1,6 @@
 import { PostHog as PostHogNode } from 'posthog-node'
 import * as vscode from 'vscode'
+
 import { version as extensionVersion } from '../../../package.json'
 
 /**

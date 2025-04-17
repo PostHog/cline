@@ -1,8 +1,7 @@
-import { countTokens } from '../util/countTokens'
 import { SnippetPayload } from '../snippets'
 import { AutocompleteCodeSnippet, AutocompleteSnippet } from '../types'
 import { AutocompleteHelperVars } from '../util/AutocompleteHelperVars'
-
+import { countTokens } from '../util/countTokens'
 import { isValidSnippet } from './validation'
 
 const getRemainingTokenCount = (helper: AutocompleteHelperVars): number => {

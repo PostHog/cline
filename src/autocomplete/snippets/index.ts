@@ -1,3 +1,5 @@
+import * as vscode from 'vscode'
+
 import { getClipboardContent, getDiff } from '../../utils/vscode'
 import { ContextRetrievalService } from '../context/ContextRetrievalService'
 import {
@@ -7,7 +9,6 @@ import {
     AutocompleteSnippetType,
 } from '../types'
 import { AutocompleteHelperVars } from '../util/AutocompleteHelperVars'
-import * as vscode from 'vscode'
 
 export interface SnippetPayload {
     rootPathSnippets: AutocompleteCodeSnippet[]

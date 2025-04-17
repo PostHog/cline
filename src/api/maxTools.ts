@@ -1,5 +1,5 @@
-import { streamSse } from './utils/stream'
 import { withExponentialBackoff } from './utils/fetch'
+import { streamSse } from './utils/stream'
 
 interface Query {
     kind: string
