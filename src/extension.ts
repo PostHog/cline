@@ -481,6 +481,10 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     )
 
+    // Set context for testing
+    ;(global as any).testExtensionContext = context
+    console.log(process.env.NODE_ENV)
+
     return createPostHogAPI(outputChannel, sidebarProvider)
 }
 

@@ -169,11 +169,6 @@ export class MerkleTreeWalker {
             ]
             this.timings.ignoreFileTime += Date.now() - section
 
-            // Initialize children array if not already present
-            if (!currentNode.children) {
-                currentNode.children = []
-            }
-
             // Process each entry in the directory
             const childrenPromises = entries.map((entry) =>
                 this.childrenLimit(async () => {
