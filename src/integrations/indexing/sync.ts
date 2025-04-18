@@ -1,13 +1,14 @@
 import * as vscode from 'vscode'
 import PQueue from 'p-queue'
-import { Logger } from '../../services/logging/Logger'
-import { CodebaseTag } from './codebase-tag'
+import { WorkspaceTags } from './workspace-tags'
 import { PathObfuscator } from '../encryption'
 import { ExtensionConfig } from './types'
 import { WorkspaceSync } from './workspace-sync'
+import { Logger } from '../../services/logging/Logger'
+import { walkDirCache } from './walker'
 
 export class CodebaseIndexer {
-    private initPromise: Promise<void> | true
+    private initialized: boolean = false
     private context: vscode.ExtensionContext
     private config: ExtensionConfig
     private pathObfuscator: PathObfuscator
@@ -21,45 +22,53 @@ export class CodebaseIndexer {
         this.config = config
         this.workspaceSyncServices = new Map()
         this.pathObfuscator = pathObfuscator
-        this.initPromise = this.init()
     }
 
-    private async init() {
-        const codebaseTag = new CodebaseTag()
-        const codebaseTags = await codebaseTag.getTags()
+    async sync(forceIndex = false) {
+        if (!this.initialized) {
+            await this.init()
+        }
 
-        const services = await Promise.all(
-            codebaseTags.map(async (codebaseTag) => {
-                const workspaceSync = new WorkspaceSync(
-                    this.context,
-                    this.config,
-                    codebaseTag.dir.toString(),
-                    codebaseTag.branchHash
-                )
-                await workspaceSync.init()
-                return [codebaseTag.dir.toString(), workspaceSync] as [string, WorkspaceSync]
-            })
-        )
-
-        this.workspaceSyncServices = new Map(services)
-        this.initPromise = true
-    }
-
-    private async awaitInit() {
         try {
-            if (this.initPromise === true) {
-                return
-            }
-            await this.initPromise
-        } catch (error) {
-            Logger.log(`Error initializing codebase sync integration: ${error}`)
-            throw error
+            await this.traverseWorkspaces(forceIndex)
+        } catch (e) {
+            Logger.log(`Error syncing codebase: ${e}`)
         }
     }
 
-    async sync() {
-        await this.awaitInit()
+    async init() {
+        this.workspaceSyncServices.clear()
 
+        try {
+            const workspaceTags = new WorkspaceTags()
+            const tags = await workspaceTags.getTags()
+
+            const services = await Promise.all(
+                tags.map(async (workspaceTag) => {
+                    const workspaceSync = new WorkspaceSync(
+                        this.context,
+                        this.config,
+                        workspaceTag.dir.toString(),
+                        workspaceTag.branchHash
+                    )
+                    await workspaceSync.init()
+                    return [workspaceTag.dir.toString(), workspaceSync] as [string, WorkspaceSync]
+                })
+            )
+
+            this.workspaceSyncServices = new Map(services)
+            this.initialized = true
+        } catch (e) {
+            Logger.log(`Error initializing codebase indexer: ${e}`)
+            this.initialized = false
+        }
+    }
+
+    invalidateCaches() {
+        walkDirCache.invalidate()
+    }
+
+    private async traverseWorkspaces(forceIndex = false) {
         if (this.syncLocked) {
             return
         }
@@ -70,7 +79,7 @@ export class CodebaseIndexer {
         const divergingFiles = await Promise.all(
             services.map(async (workspaceSyncService) => {
                 const files = []
-                for await (const file of workspaceSyncService.retrieveDivergingFiles()) {
+                for await (const file of workspaceSyncService.retrieveDivergingFiles(forceIndex)) {
                     files.push(file)
                 }
 

@@ -21,7 +21,7 @@ import { PostHogApiProvider } from './api/provider'
 import { codestralDefaultModelId } from './shared/api'
 import { CodeAnalyzer } from './analysis/codeAnalyzer'
 import { debounce } from './utils/debounce'
-import { CodebaseIndexer } from './integrations/indexing'
+import { CodebaseIndexer, setupCodebaseIndexingListeners } from './integrations/indexing'
 import { PathObfuscator } from './integrations/encryption'
 
 /*
@@ -48,18 +48,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
     const sidebarProvider = new PostHogProvider(context, outputChannel)
     const state = await sidebarProvider.getState()
-
-    const pathObfuscator = new PathObfuscator(context)
-    const codebaseIndexer = new CodebaseIndexer(
-        context,
-        {
-            projectId: 1,
-            apiKey: state.apiConfiguration.posthogApiKey!,
-            host: 'http://localhost:8010',
-        },
-        pathObfuscator
-    )
-    // codebaseIndexer.sync()
 
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(PostHogProvider.sideBarId, sidebarProvider, {
@@ -482,6 +470,20 @@ export async function activate(context: vscode.ExtensionContext) {
             })
         })
     )
+
+    // Codebase indexing
+    const pathObfuscator = new PathObfuscator(context)
+    const codebaseIndexer = new CodebaseIndexer(
+        context,
+        {
+            projectId: 1,
+            apiKey: state.apiConfiguration.posthogApiKey!,
+            host: 'http://localhost:8010',
+        },
+        pathObfuscator
+    )
+
+    setupCodebaseIndexingListeners(context, codebaseIndexer)
 
     // Set context for testing
     if (process.env.NODE_ENV === 'test') {

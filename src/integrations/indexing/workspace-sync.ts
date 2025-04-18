@@ -32,9 +32,8 @@ export class WorkspaceSync {
         }
     }
 
-    async *retrieveDivergingFiles() {
-        Logger.log(`canSync: ${this.canSync}`)
-        if (!this.canSync) {
+    async *retrieveDivergingFiles(forceIndex = false) {
+        if (!this.canSync && !forceIndex) {
             return
         }
 

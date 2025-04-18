@@ -44,12 +44,14 @@ class WalkDirCache {
             ignore: Promise<Ignore>
         }
     > = new Map()
+
     // The super safe approach for now
     invalidate() {
         this.dirListCache.clear()
         this.dirIgnoreCache.clear()
     }
 }
+
 export const walkDirCache = new WalkDirCache()
 
 async function readFile(fileUri: string): Promise<string> {
