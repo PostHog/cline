@@ -21,7 +21,7 @@ import { PostHogApiProvider } from './api/provider'
 import { codestralDefaultModelId } from './shared/api'
 import { CodeAnalyzer } from './analysis/codeAnalyzer'
 import { debounce } from './utils/debounce'
-import { CodebaseIndexer, setupCodebaseIndexingListeners } from './integrations/indexing'
+import { CodebaseIndexer } from './integrations/indexing'
 import { PathObfuscator } from './integrations/encryption'
 
 /*
@@ -482,8 +482,8 @@ export async function activate(context: vscode.ExtensionContext) {
         },
         pathObfuscator
     )
-
-    setupCodebaseIndexingListeners(context, codebaseIndexer)
+    context.subscriptions.push(codebaseIndexer)
+    codebaseIndexer.init()
 
     // Set context for testing
     if (process.env.NODE_ENV === 'test') {

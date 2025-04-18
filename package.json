@@ -337,6 +337,7 @@
         "node-machine-id": "^1.1.12",
         "open-graph-scraper": "^6.9.0",
         "os-name": "^6.0.0",
+        "p-debounce": "^4.0.0",
         "p-limit": "^6.2.0",
         "p-queue": "^8.1.0",
         "p-timeout": "^6.1.4",

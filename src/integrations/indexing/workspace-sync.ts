@@ -8,14 +8,14 @@ export class WorkspaceSync {
     private config: ExtensionConfig
 
     private workspacePath: string
-    private branchHash: string
+    private branch: string
     private codebaseId: string | null
 
-    constructor(context: vscode.ExtensionContext, config: ExtensionConfig, workspacePath: string, branchHash: string) {
+    constructor(context: vscode.ExtensionContext, config: ExtensionConfig, workspacePath: string, branch: string) {
         this.context = context
         this.config = config
         this.workspacePath = workspacePath
-        this.branchHash = branchHash
+        this.branch = branch
         this.codebaseId = null
     }
 
@@ -80,6 +80,7 @@ export class WorkspaceSync {
             },
             body: JSON.stringify({
                 tree: treeNodes,
+                branch: this.branch,
             }),
         })
         const data = (await response.json()) as CodebaseSyncStatus
@@ -133,6 +134,6 @@ export class WorkspaceSync {
         }
 
         const tenMinutesAgo = Date.now() - 1000 * 60 * 10 // 10m
-        return lastSyncStatus.ts < tenMinutesAgo || lastSyncStatus.hash !== this.branchHash
+        return lastSyncStatus.ts < tenMinutesAgo || lastSyncStatus.hash !== this.branch
     }
 }
