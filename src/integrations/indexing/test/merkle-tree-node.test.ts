@@ -4,7 +4,6 @@ import * as path from 'path'
 import * as fs from 'node:fs/promises'
 import * as os from 'os'
 import { fileURLToPath } from 'node:url'
-import { TreeNodeType } from '../types'
 
 describe('MerkleTreeNode', () => {
     let tempDir: string
