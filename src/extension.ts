@@ -21,6 +21,8 @@ import { PostHogApiProvider } from './api/provider'
 import { codestralDefaultModelId } from './shared/api'
 import { CodeAnalyzer } from './analysis/codeAnalyzer'
 import { debounce } from './utils/debounce'
+import { CodebaseIndexer } from './integrations/indexing'
+import { PathObfuscator } from './integrations/encryption'
 
 /*
 Built using https://github.com/microsoft/vscode-webview-ui-toolkit
@@ -42,9 +44,22 @@ export async function activate(context: vscode.ExtensionContext) {
     Logger.initialize(outputChannel)
     Logger.log('PostHog extension activated')
 
-    const sidebarProvider = new PostHogProvider(context, outputChannel)
-
     vscode.commands.executeCommand('setContext', 'posthog.isDevMode', IS_DEV && IS_DEV === 'true')
+
+    const sidebarProvider = new PostHogProvider(context, outputChannel)
+    const state = await sidebarProvider.getState()
+
+    const pathObfuscator = new PathObfuscator(context)
+    const codebaseIndexer = new CodebaseIndexer(
+        context,
+        {
+            projectId: 1,
+            apiKey: state.apiConfiguration.posthogApiKey!,
+            host: 'http://localhost:8010',
+        },
+        pathObfuscator
+    )
+    // codebaseIndexer.sync()
 
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(PostHogProvider.sideBarId, sidebarProvider, {
@@ -144,7 +159,6 @@ export async function activate(context: vscode.ExtensionContext) {
     )
 
     // Tab autocomplete
-    const state = await sidebarProvider.getState()
     const autocompleteEnabled = state.enableTabAutocomplete
 
     // Register inline completion provider
@@ -468,6 +482,11 @@ export async function activate(context: vscode.ExtensionContext) {
             })
         })
     )
+
+    // Set context for testing
+    if (process.env.NODE_ENV === 'test') {
+        ;(global as any).testExtensionContext = context
+    }
 
     return createPostHogAPI(outputChannel, sidebarProvider)
 }
