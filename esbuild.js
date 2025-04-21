@@ -3,6 +3,7 @@ const fs = require('fs')
 const path = require('path')
 
 const production = process.argv.includes('--production')
+const test = process.argv.includes('--test')
 const watch = process.argv.includes('--watch')
 
 /**
@@ -82,6 +83,9 @@ const copyWasmFiles = {
     },
 }
 
+/**
+ * @type {import('esbuild').BuildOptions}
+ */
 const extensionConfig = {
     bundle: true,
     minify: production,
@@ -98,8 +102,26 @@ const extensionConfig = {
     mainFields: ['main', 'module'],
 }
 
+/**
+ * @type {import('esbuild').BuildOptions}
+ */
+const testConfig = {
+    entryPoints: ['src/**/*.test.ts'],
+    bundle: true,
+    minify: false,
+    sourcemap: true,
+    platform: 'node',
+    format: 'cjs',
+    outdir: 'out',
+    external: [...extensionConfig.external, 'mocha', 'should', 'chai', 'sinon'],
+    sourcemap: true,
+    target: 'node16',
+    tsconfig: 'tsconfig.test.json',
+}
+
 async function main() {
-    const extensionCtx = await esbuild.context(extensionConfig)
+    const config = test ? testConfig : extensionConfig
+    const extensionCtx = await esbuild.context(config)
     if (watch) {
         await extensionCtx.watch()
     } else {
