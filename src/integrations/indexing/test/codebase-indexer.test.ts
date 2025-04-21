@@ -26,7 +26,7 @@ describe('CodebaseIndexer Integration', () => {
     let onDidDeleteFilesStub: SinonStub
 
     const testConfig: ExtensionConfig = {
-        projectId: 123,
+        projectId: '123',
         host: 'https://test.host',
         apiKey: 'test-api-key',
     }
