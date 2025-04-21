@@ -3,6 +3,7 @@ const fs = require('fs')
 const path = require('path')
 
 const production = process.argv.includes('--production')
+const test = process.argv.includes('--test')
 const watch = process.argv.includes('--watch')
 
 /**
@@ -25,11 +26,14 @@ const esbuildProblemMatcherPlugin = {
     },
 }
 
+/**
+ * @type {import('esbuild').Plugin}
+ */
 const copyNativeModules = {
     name: 'copy-native-modules',
     setup(build) {
         build.onEnd(() => {
-            const distDir = path.join(__dirname, 'dist')
+            const distDir = path.join(__dirname, build.initialOptions.outdir || 'dist')
             const nodeModulesDir = path.join(__dirname, 'node_modules')
             // Copy SQLite3 binary
             const sourcePath = 'node_modules/sqlite3/build/Release/node_sqlite3.node'
@@ -43,11 +47,14 @@ const copyNativeModules = {
     },
 }
 
+/**
+ * @type {import('esbuild').Plugin}
+ */
 const copyWasmFiles = {
     name: 'copy-wasm-files',
     setup(build) {
         build.onEnd(() => {
-            const distDir = path.join(__dirname, 'dist')
+            const distDir = path.join(__dirname, build.initialOptions.outdir || 'dist')
 
             // tree sitter
             const sourceDir = path.join(__dirname, 'node_modules', 'web-tree-sitter')
@@ -82,24 +89,46 @@ const copyWasmFiles = {
     },
 }
 
-const extensionConfig = {
+/**
+ * @type {import('esbuild').BuildOptions}
+ */
+const sharedConfig = {
     bundle: true,
     minify: production,
     sourcemap: !production,
-    logLevel: 'silent',
     plugins: [copyWasmFiles, copyNativeModules, esbuildProblemMatcherPlugin],
-    entryPoints: ['src/extension.ts'],
     format: 'cjs',
-    sourcesContent: false,
     platform: 'node',
-    outfile: 'dist/extension.js',
     external: ['vscode'],
     target: 'node16',
+}
+
+/**
+ * @type {import('esbuild').BuildOptions}
+ */
+const extensionConfig = {
+    ...sharedConfig,
+    logLevel: 'silent',
+    entryPoints: ['src/extension.ts'],
+    sourcesContent: false,
+    outfile: 'dist/extension.js',
     mainFields: ['main', 'module'],
 }
 
+/**
+ * @type {import('esbuild').BuildOptions}
+ */
+const testConfig = {
+    ...sharedConfig,
+    entryPoints: ['src/**/*.test.ts'],
+    outdir: 'out',
+    external: [...sharedConfig.external, 'mocha', 'should', 'chai', 'sinon'],
+    tsconfig: 'tsconfig.test.json',
+}
+
 async function main() {
-    const extensionCtx = await esbuild.context(extensionConfig)
+    const config = test ? testConfig : extensionConfig
+    const extensionCtx = await esbuild.context(config)
     if (watch) {
         await extensionCtx.watch()
     } else {
