@@ -21,7 +21,7 @@ export class WorkspaceSync {
 
     async init() {
         try {
-            let codebaseId = await this.context.workspaceState.get<string>(this.codebaseIdKey)
+            let codebaseId = this.context.workspaceState.get<string>(this.codebaseIdKey)
             if (!codebaseId) {
                 codebaseId = await this.createCodebase()
                 await this.context.workspaceState.update(this.codebaseIdKey, codebaseId)
@@ -54,7 +54,7 @@ export class WorkspaceSync {
         }
     }
 
-    private async createCodebase(): Promise<string> {
+    async createCodebase(): Promise<string> {
         const url = new URL(`/api/projects/${this.config.projectId}/codebases`, this.config.host)
         const response = await fetch(url, {
             method: 'POST',
@@ -67,7 +67,7 @@ export class WorkspaceSync {
         return data.id
     }
 
-    private async checkSyncedCodebase(treeNodes: TreeNode[]) {
+    async checkSyncedCodebase(treeNodes: TreeNode[]) {
         const url = new URL(
             `/api/projects/${this.config.projectId}/codebases/${this.codebaseId}/sync`,
             this.config.host
