@@ -45,7 +45,7 @@ export class CodebaseIndexer implements vscode.Disposable {
         this.disposables.push(vscode.workspace.onDidDeleteFiles(invalidateAndReindex))
 
         // Register Git listeners, so we can reindex when the branch changes
-        const git = await getGitExtensionApi()
+        const git = await this.getGitExtension()
         if (git) {
             await this.initGit(git)
         }
@@ -61,6 +61,10 @@ export class CodebaseIndexer implements vscode.Disposable {
 
     dispose() {
         this.disposables.forEach((disposable) => disposable.dispose())
+    }
+
+    private async getGitExtension() {
+        return getGitExtensionApi()
     }
 
     private async initGit(git: GitExtensionAPI) {

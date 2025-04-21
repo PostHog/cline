@@ -41,6 +41,12 @@ export class WorkspaceSync {
         const treeNodes = Array.from(merkleTree.toTreeNodes())
         const status = await this.checkSyncedCodebase(treeNodes)
 
+        const syncStatus: SyncStatus = {
+            hash: this.branch,
+            ts: Date.now(),
+        }
+        await this.context.workspaceState.update(this.lastSyncKey, syncStatus)
+
         if (status.synced) {
             return
         }
