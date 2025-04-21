@@ -3,8 +3,9 @@ import { globby } from 'globby'
 import * as path from 'path'
 import simpleGit, { SimpleGit } from 'simple-git'
 
-import { telemetryService } from '../../services/telemetry/TelemetryService'
-import { fileExistsAtPath } from '../../utils/fs'
+import { telemetryService } from '~/services/telemetry/TelemetryService'
+import { fileExistsAtPath } from '~/utils/fs'
+
 import { getLfsPatterns, writeExcludesFile } from './CheckpointExclusions'
 
 interface CheckpointAddResult {

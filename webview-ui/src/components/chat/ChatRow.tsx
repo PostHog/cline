@@ -12,11 +12,11 @@ import {
     PostHogSayTool,
     COMPLETION_RESULT_CHANGES_FLAG,
     ExtensionMessage,
-} from '../../../../src/shared/ExtensionMessage'
-import { COMMAND_OUTPUT_STRING, COMMAND_REQ_APP_STRING } from '../../../../src/shared/combineCommandSequences'
-import { useExtensionState } from '../../context/ExtensionStateContext'
-import { findMatchingResourceOrTemplate } from '../../utils/mcp'
-import { vscode } from '../../utils/vscode'
+} from '~//shared/ExtensionMessage'
+import { COMMAND_OUTPUT_STRING, COMMAND_REQ_APP_STRING } from '~//shared/combineCommandSequences'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
+import { findMatchingResourceOrTemplate } from 'ui/utils/mcp'
+import { vscode } from 'ui/utils/vscode'
 import { CheckmarkControl } from '../common/CheckmarkControl'
 import { CheckpointControls, CheckpointOverlay } from '../common/CheckpointControls'
 import CodeAccordian, { cleanPathPrefix } from '../common/CodeAccordian'

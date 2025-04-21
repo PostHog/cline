@@ -3,9 +3,10 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import * as vscode from 'vscode'
 
-import { formatResponse } from '../../core/prompts/responses'
-import { createDirectoriesForFile } from '../../utils/fs'
-import { arePathsEqual } from '../../utils/path'
+import { formatResponse } from '~/core/prompts/responses'
+import { createDirectoriesForFile } from '~/utils/fs'
+import { arePathsEqual } from '~/utils/path'
+
 import { diagnosticsToProblemsString, getNewDiagnostics } from '../diagnostics'
 import { DecorationController } from './DecorationController'
 

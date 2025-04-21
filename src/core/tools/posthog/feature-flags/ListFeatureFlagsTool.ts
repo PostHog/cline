@@ -1,4 +1,5 @@
-import type { ToolUse } from '../../../assistant-message'
+import type { ToolUse } from '~/core/assistant-message'
+
 import type { ListFeatureFlagsToolInput, ListFeatureFlagsToolOutput } from '../../schema'
 import { BasePostHogToolConfigSchema } from '../../schema'
 import { ListFeatureFlagsToolInputSchema, ListFeatureFlagsToolOutputSchema } from '../../schema'

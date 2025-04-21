@@ -1,4 +1,5 @@
-import { PostHogUsage } from '../analysis/codeAnalyzer'
+import { PostHogUsage } from '~/analysis/codeAnalyzer'
+
 import { ApiConfiguration } from './api'
 import { AutoApprovalSettings } from './AutoApprovalSettings'
 import { BrowserSettings } from './BrowserSettings'

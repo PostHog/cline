@@ -17,8 +17,8 @@ import * as path from 'path'
 import * as vscode from 'vscode'
 import { z } from 'zod'
 
-import { PostHogProvider } from '../../core/webview/PostHogProvider'
-import { GlobalFileNames } from '../../global-constants'
+import { PostHogProvider } from '~/core/webview/PostHogProvider'
+import { GlobalFileNames } from '~/global-constants'
 import {
     DEFAULT_MCP_TIMEOUT_SECONDS,
     McpMode,
@@ -29,10 +29,10 @@ import {
     McpTool,
     McpToolCallResponse,
     MIN_MCP_TIMEOUT_SECONDS,
-} from '../../shared/mcp'
-import { fileExistsAtPath } from '../../utils/fs'
-import { arePathsEqual } from '../../utils/path'
-import { secondsToMs } from '../../utils/time'
+} from '~/shared/mcp'
+import { fileExistsAtPath } from '~/utils/fs'
+import { arePathsEqual } from '~/utils/path'
+import { secondsToMs } from '~/utils/time'
 
 export type McpConnection = {
     server: McpServer

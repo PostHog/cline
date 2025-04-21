@@ -7,7 +7,7 @@ import { Browser, launch, Page } from 'puppeteer-core'
 import TurndownService from 'turndown'
 import * as vscode from 'vscode'
 
-import { fileExistsAtPath } from '../../utils/fs'
+import { fileExistsAtPath } from '~/utils/fs'
 
 interface PCRStats {
     puppeteer: { launch: typeof launch }

@@ -2,7 +2,8 @@ import { createHash } from 'crypto'
 import { LRUCache } from 'lru-cache'
 import Parser from 'web-tree-sitter'
 
-import { gotoDefinition, readRangeInFile } from '../../../utils/vscode'
+import { gotoDefinition, readRangeInFile } from '~/utils/vscode'
+
 import { AutocompleteCodeSnippet, AutocompleteSnippetType, AutocompleteSnippetWithScore } from '../../types'
 import { AstPath } from '../../util/ast'
 import { getFullLanguageName, getQueryForFile, IGNORE_PATH_PATTERNS, LanguageName } from '../../util/treeSitter'

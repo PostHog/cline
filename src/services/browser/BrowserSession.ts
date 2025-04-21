@@ -8,9 +8,9 @@ import PCR from 'puppeteer-chromium-resolver'
 import { Browser, launch, Page, ScreenshotOptions, TimeoutError } from 'puppeteer-core'
 import * as vscode from 'vscode'
 
-import { BrowserSettings } from '../../shared/BrowserSettings'
-import { BrowserActionResult } from '../../shared/ExtensionMessage'
-import { fileExistsAtPath } from '../../utils/fs'
+import { BrowserSettings } from '~/shared/BrowserSettings'
+import { BrowserActionResult } from '~/shared/ExtensionMessage'
+import { fileExistsAtPath } from '~/utils/fs'
 // import * as chromeLauncher from "chrome-launcher"
 
 interface PCRStats {

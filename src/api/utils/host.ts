@@ -1,4 +1,4 @@
-import { ApiConfiguration } from '../../shared/api'
+import { ApiConfiguration } from '~/shared/api'
 
 export const getHost = (apiConfiguration: ApiConfiguration) => {
     if (process.env.IS_DEV) {

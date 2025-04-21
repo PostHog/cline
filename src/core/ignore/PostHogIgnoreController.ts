@@ -3,7 +3,7 @@ import ignore, { Ignore } from 'ignore'
 import path from 'path'
 import * as vscode from 'vscode'
 
-import { fileExistsAtPath } from '../../utils/fs'
+import { fileExistsAtPath } from '~/utils/fs'
 
 export const LOCK_TEXT_SYMBOL = '\u{1F512}'
 

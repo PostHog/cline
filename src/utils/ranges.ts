@@ -1,4 +1,4 @@
-import { Range } from '../autocomplete/types'
+import { Range } from '~/autocomplete/types'
 
 export function getRangeInString(content: string, range: Range): string {
     const lines = content.split('\n')

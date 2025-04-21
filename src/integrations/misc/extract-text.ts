@@ -5,7 +5,7 @@ import * as path from 'path'
 // @ts-ignore-next-line
 import pdf from 'pdf-parse/lib/pdf-parse'
 
-import { getFileSizeInKB } from '../../utils/fs'
+import { getFileSizeInKB } from '~/utils/fs'
 
 export async function extractTextFromFile(filePath: string): Promise<string> {
     try {

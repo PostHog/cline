@@ -1,7 +1,8 @@
 import { z } from 'zod'
 
-import type { PostHogSayTool } from '../../../shared/ExtensionMessage'
-import type { ToolUse } from '../../assistant-message'
+import type { ToolUse } from '~/core/assistant-message'
+import type { PostHogSayTool } from '~/shared/ExtensionMessage'
+
 import type { ToolInput, ToolOutput } from '../types'
 import { ToolInputValidationError, ToolOutputValidationError } from './errors'
 

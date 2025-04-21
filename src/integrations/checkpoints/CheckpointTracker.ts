@@ -3,7 +3,8 @@ import * as path from 'path'
 import simpleGit from 'simple-git'
 import * as vscode from 'vscode'
 
-import { telemetryService } from '../../services/telemetry/TelemetryService'
+import { telemetryService } from '~/services/telemetry/TelemetryService'
+
 import { GitOperations } from './CheckpointGitOperations'
 import { getShadowGitPath, getWorkingDirectory, hashWorkingDir } from './CheckpointUtils'
 

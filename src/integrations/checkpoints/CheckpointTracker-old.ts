@@ -5,8 +5,8 @@ import * as path from 'path'
 import simpleGit, { SimpleGit } from 'simple-git'
 import * as vscode from 'vscode'
 
-import { PostHogProvider } from '../../core/webview/PostHogProvider'
-import { fileExistsAtPath } from '../../utils/fs'
+import { PostHogProvider } from '~/core/webview/PostHogProvider'
+import { fileExistsAtPath } from '~/utils/fs'
 
 class CheckpointTracker {
     private providerRef: WeakRef<PostHogProvider>

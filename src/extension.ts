@@ -17,12 +17,12 @@ import {
     setupStatusBar,
     StatusBarStatus,
 } from './autocomplete/statusBar'
-import { codestralDefaultModelId } from './shared/api'
 import { PostHogProvider } from './core/webview/PostHogProvider'
 import { createPostHogAPI } from './exports'
 import { DIFF_VIEW_URI_SCHEME } from './integrations/editor/DiffViewProvider'
 import { Logger } from './services/logging/Logger'
 import { telemetryService } from './services/telemetry/TelemetryService'
+import { codestralDefaultModelId } from './shared/api'
 import { debounce } from './utils/debounce'
 import { ConfigManager } from './shared/conf'
 

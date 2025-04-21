@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
-import { vscode } from '../../utils/vscode'
-import { PostHogUsage } from '../../../../src/analysis/codeAnalyzer'
-import { useExtensionState } from '../../context/ExtensionStateContext'
+import { vscode } from 'ui/utils/vscode'
+import { PostHogUsage } from '~//analysis/codeAnalyzer'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
 import { VSCodeBadge, VSCodeButton } from '@vscode/webview-ui-toolkit/react'
 import './AnalysisView.scss'
 
