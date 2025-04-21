@@ -1,8 +1,13 @@
 import * as vscode from 'vscode'
 import { PostHogAPI } from './posthog'
 import { PostHogProvider } from '../core/webview/PostHogProvider'
+import { ConfigManager } from '../shared/conf'
 
-export function createPostHogAPI(outputChannel: vscode.OutputChannel, sidebarProvider: PostHogProvider): PostHogAPI {
+export function createPostHogAPI(
+    outputChannel: vscode.OutputChannel,
+    sidebarProvider: PostHogProvider,
+    configManager: ConfigManager
+): PostHogAPI {
     const api: PostHogAPI = {
         setCustomInstructions: async (value: string) => {
             await sidebarProvider.updateCustomInstructions(value)
@@ -10,7 +15,7 @@ export function createPostHogAPI(outputChannel: vscode.OutputChannel, sidebarPro
         },
 
         getCustomInstructions: async () => {
-            return (await sidebarProvider.getGlobalState('customInstructions')) as string | undefined
+            return (await configManager.getGlobalValue('customInstructions')) as string | undefined
         },
 
         startNewTask: async (task?: string, images?: string[]) => {
