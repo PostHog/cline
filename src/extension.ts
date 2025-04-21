@@ -472,18 +472,20 @@ export async function activate(context: vscode.ExtensionContext) {
     )
 
     // Codebase indexing
-    const pathObfuscator = new PathObfuscator(context)
-    const codebaseIndexer = new CodebaseIndexer(
-        context,
-        {
-            projectId: 1,
-            apiKey: state.apiConfiguration.posthogApiKey!,
-            host: 'http://localhost:8010',
-        },
-        pathObfuscator
-    )
-    context.subscriptions.push(codebaseIndexer)
-    codebaseIndexer.init()
+    if (state.apiConfiguration.posthogProjectId) {
+        const pathObfuscator = new PathObfuscator(context)
+        const codebaseIndexer = new CodebaseIndexer(
+            context,
+            {
+                projectId: state.apiConfiguration.posthogProjectId,
+                apiKey: state.apiConfiguration.posthogApiKey!,
+                host: IS_DEV ? 'http://localhost:8010' : state.apiConfiguration.posthogHost,
+            },
+            pathObfuscator
+        )
+        context.subscriptions.push(codebaseIndexer)
+        codebaseIndexer.init()
+    }
 
     // Set context for testing
     if (process.env.NODE_ENV === 'test') {

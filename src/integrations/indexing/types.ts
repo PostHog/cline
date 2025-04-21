@@ -1,5 +1,5 @@
 export interface ExtensionConfig {
-    projectId: number
+    projectId: string
     host: string
     apiKey: string
 }
