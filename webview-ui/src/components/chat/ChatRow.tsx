@@ -29,6 +29,7 @@ import McpResponseDisplay from '../mcp/McpResponseDisplay'
 import { OptionsButtons } from './OptionsButtons'
 import { highlightMentions } from './TaskHeader'
 import SuccessButton from '../common/SuccessButton'
+import ChatRowList from './rows/ChatRowList'
 
 const ChatRowContainer = styled.div`
     padding: 10px 6px 10px 15px;
@@ -548,6 +549,21 @@ export const ChatRowContent = ({
                                 {tool.url}
                             </a>
                         </div>
+                    </>
+                )
+            case 'addCaptureCalls':
+                const items = tool.events ?? tool.fileNames ?? []
+                return (
+                    <>
+                        <div style={headerStyle}>
+                            {toolIcon('add')}
+                            <span style={{ fontWeight: 600, color: 'var(--vscode-editor-foreground)' }}>
+                                {message.type === 'ask'
+                                    ? `Max wants to add tracking to ${items.length} files`
+                                    : `Added ${tool.events!.length} events to ${tool.fileName}`}
+                            </span>
+                        </div>
+                        {items.length > 0 && <ChatRowList items={items} />}
                     </>
                 )
             case 'createFeatureFlag':

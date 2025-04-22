@@ -2964,12 +2964,53 @@ export class PostHog {
                                 return filePath
                             })
 
+                            const shouldAutoApprove = this.shouldAutoApproveTool('write_to_file')
+
+                            const fileNames = paths.map((path) => path.split('/').pop() || path)
+
+                            const sayMessage = JSON.stringify({
+                                tool: 'addCaptureCalls',
+                                fileNames,
+                            } satisfies PostHogSayTool)
+
+                            if (shouldAutoApprove) {
+                                this.removeLastPartialMessageIfExistsWithType('ask', 'tool')
+
+                                await this.say('tool', sayMessage, undefined, false)
+                            } else {
+                                showNotificationForApprovalIfAutoApprovalEnabled(
+                                    `Max would like to add analytics to ${paths.length} files`
+                                )
+
+                                this.removeLastPartialMessageIfExistsWithType('say', 'tool')
+
+                                const didApprove = await askApproval('tool', sayMessage)
+
+                                if (!didApprove) {
+                                    telemetryService.captureToolUsage(this.taskId, block.name, false, false)
+                                    break
+                                }
+                            }
+
                             const result = await this.addCaptureCallsTool(paths, { trackingConventions })
+
+                            telemetryService.captureToolUsage(
+                                this.taskId,
+                                block.name,
+                                this.shouldAutoApproveTool('write_to_file'),
+                                true
+                            )
 
                             pushToolResult(result)
                             break
                         } catch (error) {
                             await handleError('adding capture calls', error)
+                            telemetryService.captureToolUsage(
+                                this.taskId,
+                                block.name,
+                                this.shouldAutoApproveTool('write_to_file'),
+                                false
+                            )
                             break
                         }
                     }
@@ -4107,7 +4148,7 @@ export class PostHog {
     ): Promise<ToolResponse> {
         const numberOfFiles = paths.length
 
-        await this.say('text', `Starting to add analytics to ${numberOfFiles} files...`)
+        await this.say('text', `Adding analytics to ${numberOfFiles} files...`)
 
         const results: { path: string; success: boolean; message: string }[] = []
 
@@ -4144,20 +4185,49 @@ export class PostHog {
                 const apiStream = this.api.stream(systemPrompt, [{ role: 'user', content: userPrompt }])
 
                 // Collect the whole response
-                let modifiedContent = ''
+                let fullResponse = ''
                 for await (const chunk of apiStream) {
-                    modifiedContent += chunk.type === 'text' ? chunk.text : ''
+                    fullResponse += chunk.type === 'text' ? chunk.text : ''
+                }
+
+                const updatedContentMatch = fullResponse.match(
+                    /<updated_file_contents>([\s\S]*?)<\/updated_file_contents>/
+                )
+                const addedEventsMatch = fullResponse.match(/<added_capture_events>([\s\S]*?)<\/added_capture_events>/)
+
+                if (!updatedContentMatch || !addedEventsMatch) {
+                    throw new Error('Could not parse AI response for updated content or events.')
+                }
+
+                const updatedContent = updatedContentMatch[1].trim()
+
+                const addedEvents = addedEventsMatch[1]
+                    .split(',')
+                    .map((e) => e.trim())
+                    .filter(Boolean)
+
+                if (addedEvents.length === 0) {
+                    return
                 }
 
                 const textEncoder = new TextEncoder()
-                await vscode.workspace.fs.writeFile(fileUri, textEncoder.encode(modifiedContent))
+                await vscode.workspace.fs.writeFile(fileUri, textEncoder.encode(updatedContent))
 
-                await this.say('text', `Successfully added analytics to ${path.basename(relPath)}`)
+                const fileName = path.basename(relPath)
+
+                await this.say(
+                    'tool',
+                    JSON.stringify({
+                        tool: 'addCaptureCalls',
+                        fileName,
+                        events: addedEvents,
+                    } satisfies PostHogSayTool)
+                )
 
                 results.push({
                     path: relPath,
                     success: true,
-                    message: `Successfully added analytics to ${path.basename(relPath)}`,
+                    message: `Successfully added analytics to ${fileName}, events added: ${addedEvents.join(', ')}`,
                 })
 
                 // TODO: Remove duplicate events using the doctor
