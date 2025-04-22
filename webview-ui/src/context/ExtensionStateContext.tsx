@@ -1,17 +1,19 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { useEvent } from 'react-use'
-import { DEFAULT_AUTO_APPROVAL_SETTINGS } from '~//shared/AutoApprovalSettings'
-import { ExtensionMessage, ExtensionState, DEFAULT_PLATFORM } from '~//shared/ExtensionMessage'
-import { ApiConfiguration } from '~//shared/api'
-import { findLastIndex } from '~//shared/array'
-import { McpServer } from '~//shared/mcp'
+
+import { PostHogUsage } from '~/analysis/codeAnalyzer'
+import { PostHogProject } from '~/api/types'
+import { ApiConfiguration } from '~/shared/api'
+import { findLastIndex } from '~/shared/array'
+import { DEFAULT_AUTO_APPROVAL_SETTINGS } from '~/shared/AutoApprovalSettings'
+import { DEFAULT_BROWSER_SETTINGS } from '~/shared/BrowserSettings'
+import { ChatSettings } from '~/shared/ChatSettings'
+import { DEFAULT_PLATFORM, ExtensionMessage, ExtensionState } from '~/shared/ExtensionMessage'
+import { McpServer } from '~/shared/mcp'
+import { TelemetrySetting } from '~/shared/TelemetrySetting'
+
 import { convertTextMateToHljs } from '../utils/textMateToHljs'
 import { vscode } from '../utils/vscode'
-import { DEFAULT_BROWSER_SETTINGS } from '~//shared/BrowserSettings'
-import { TelemetrySetting } from '~//shared/TelemetrySetting'
-import { PostHogUsage } from '~//analysis/codeAnalyzer'
-import { ChatSettings } from '~//shared/ChatSettings'
-import { PostHogProject } from '~//api/types'
 
 interface ExtensionStateContextType extends ExtensionState {
     didHydrateState: boolean

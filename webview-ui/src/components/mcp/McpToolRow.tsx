@@ -1,7 +1,8 @@
 import { VSCodeCheckbox } from '@vscode/webview-ui-toolkit/react'
-import { McpTool } from '~//shared/mcp'
-import { vscode } from 'ui/utils/vscode'
 import { useExtensionState } from 'ui/context/ExtensionStateContext'
+import { vscode } from 'ui/utils/vscode'
+
+import { McpTool } from '~/shared/mcp'
 
 type McpToolRowProps = {
     tool: McpTool
@@ -12,7 +13,9 @@ const McpToolRow = ({ tool, serverName }: McpToolRowProps) => {
     const { autoApprovalSettings } = useExtensionState()
 
     const handleAutoApproveChange = () => {
-        if (!serverName) return
+        if (!serverName) {
+            return
+        }
 
         vscode.postMessage({
             type: 'toggleToolAutoApprove',

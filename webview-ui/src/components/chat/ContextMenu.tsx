@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react'
 import { ContextMenuOptionType, ContextMenuQueryItem, getContextMenuOptions } from 'ui/utils/context-mentions'
+
 import { cleanPathPrefix } from '../common/CodeAccordian'
 
 interface ContextMenuProps {

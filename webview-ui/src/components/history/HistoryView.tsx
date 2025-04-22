@@ -1,13 +1,14 @@
-import { VSCodeButton, VSCodeTextField, VSCodeRadioGroup, VSCodeRadio } from '@vscode/webview-ui-toolkit/react'
-import { useExtensionState } from 'ui/context/ExtensionStateContext'
-import { vscode } from 'ui/utils/vscode'
-import { Virtuoso } from 'react-virtuoso'
-import { memo, useMemo, useState, useEffect, useCallback } from 'react'
+import { VSCodeButton, VSCodeRadio, VSCodeRadioGroup, VSCodeTextField } from '@vscode/webview-ui-toolkit/react'
 import Fuse, { FuseResult } from 'fuse.js'
-import { formatLargeNumber } from 'ui/utils/format'
-import { formatSize } from 'ui/utils/size'
-import { ExtensionMessage } from '~//shared/ExtensionMessage'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useEvent } from 'react-use'
+import { Virtuoso } from 'react-virtuoso'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
+import { formatSize } from 'ui/utils/size'
+import { vscode } from 'ui/utils/vscode'
+
+import { ExtensionMessage } from '~/shared/ExtensionMessage'
+
 import DangerButton from '../common/DangerButton'
 
 type HistoryViewProps = {
@@ -362,7 +363,9 @@ export const highlight = (
 
     // Function to merge overlapping regions
     const mergeRegions = (regions: [number, number][]): [number, number][] => {
-        if (regions.length === 0) return regions
+        if (regions.length === 0) {
+            return regions
+        }
 
         // Sort regions by start index
         regions.sort((a, b) => a[0] - b[0])

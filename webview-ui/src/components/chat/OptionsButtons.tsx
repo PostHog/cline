@@ -1,6 +1,7 @@
 import styled from 'styled-components'
-import { CODE_BLOCK_BG_COLOR } from '../common/CodeBlock'
 import { vscode } from 'ui/utils/vscode'
+
+import { CODE_BLOCK_BG_COLOR } from '../common/CodeBlock'
 
 const OptionButton = styled.button<{ isSelected?: boolean; isNotSelectable?: boolean }>`
     padding: 8px 12px;
@@ -31,7 +32,9 @@ export const OptionsButtons = ({
     selected?: string
     isActive?: boolean
 }) => {
-    if (!options?.length) return null
+    if (!options?.length) {
+        return null
+    }
 
     const hasSelected = selected !== undefined && options.includes(selected)
 

@@ -1,6 +1,3 @@
-import { VSCodeButton } from '@vscode/webview-ui-toolkit/react'
-import styled from 'styled-components'
-
 interface SuggestedTasksProps {
     setInputValue: (value: string) => void
     handleSendMessage: (text: string, images: string[]) => void
