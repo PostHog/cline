@@ -191,12 +191,12 @@ export class CodebaseIndexer implements vscode.Disposable {
         vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Window,
-                title: 'Codebase Sync',
+                title: 'Indexing Files',
             },
             async (progress) => {
                 function reportProgress() {
                     progress.report({
-                        message: `Indexing file ${processedCount} of ${fileCount}...`,
+                        message: `${processedCount}/${fileCount}`,
                         increment: processedCount / fileCount,
                     })
                 }

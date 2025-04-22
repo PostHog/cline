@@ -5,6 +5,8 @@ import ignore, { Ignore } from 'ignore'
 import limit from 'p-limit'
 import { FileType } from 'vscode'
 
+import { telemetryService } from '~/services/telemetry/TelemetryService'
+
 import { ignoreDirsAndFiles } from '../../utils/exclusions'
 import { joinPathsToUri } from '../../utils/uri'
 import { MerkleTreeNode } from './merkle-tree-node'
@@ -89,23 +91,25 @@ export class MerkleTreeWalker {
     constructor(private readonly uri: string) {
         this.timings = {
             start: 0,
+            endTime: 0,
             dirs: 0,
-            ignoreFileTime: 0,
+            ignoreFile: 0,
             ignoreTime: 0,
-            listDirTime: 0,
+            listDir: 0,
             listDirCacheHits: 0,
             ignoreCacheHits: 0,
+            merkleTree: 0,
         }
     }
 
     // Build a merkle tree from the directory structure
     public async buildTree(): Promise<MerkleTreeNode> {
-        this.timings.start = Date.now()
+        this.timings.start = performance.now()
 
         // Get default ignores
-        let section = Date.now()
+        let section = performance.now()
         const defaultAndGlobalIgnores = ignore().add(ignoreDirsAndFiles)
-        this.timings.ignoreFileTime = Date.now() - section
+        this.timings.ignoreFile = performance.now() - section
 
         // Create the root context for the tree traversal
         const rootContext: WalkContext = {
@@ -132,7 +136,7 @@ export class MerkleTreeWalker {
             this.timings.dirs++
 
             // Get directory contents
-            section = Date.now()
+            section = performance.now()
             let entries: [string, FileType][] = []
             const cachedListdir = walkDirCache.dirListCache.get(cur.walkableEntry.uri)
             if (cachedListdir && cachedListdir.time > Date.now() - this.LIST_DIR_CACHE_TIME) {
@@ -146,10 +150,10 @@ export class MerkleTreeWalker {
                 })
                 entries = await promise
             }
-            this.timings.listDirTime += Date.now() - section
+            this.timings.listDir += performance.now() - section
 
             // Process ignore files
-            section = Date.now()
+            section = performance.now()
             let newIgnore: Ignore
             const cachedIgnore = walkDirCache.dirIgnoreCache.get(cur.walkableEntry.uri)
             if (cachedIgnore && cachedIgnore.time > Date.now() - this.IGNORE_FILE_CACHE_TIME) {
@@ -171,7 +175,7 @@ export class MerkleTreeWalker {
                     dirname: cur.walkableEntry.relativeUriPath,
                 },
             ]
-            this.timings.ignoreFileTime += Date.now() - section
+            this.timings.ignoreFile += performance.now() - section
 
             // Process each entry in the directory
             const childrenPromises = entries.map((entry) =>
@@ -223,14 +227,22 @@ export class MerkleTreeWalker {
             await Promise.all(childrenPromises)
         }
 
-        return rootNode.buildHashes()
+        this.timings.merkleTree = performance.now()
+        const hashes = await rootNode.buildHashes()
+        this.timings.merkleTree = performance.now() - this.timings.merkleTree
+
+        this.timings.endTime = performance.now()
+        this.timings.totalTime = this.timings.endTime - this.timings.start
+        this.reportTimings()
+
+        return hashes
     }
 
     private isPathIgnored(path: string, ignoreContexts: IgnoreContext[]) {
-        const section = Date.now()
+        const section = performance.now()
 
         const setTimings = () => {
-            this.timings.ignoreTime += Date.now() - section
+            this.timings.ignoreTime += performance.now() - section
         }
 
         for (const ignoreContext of ignoreContexts) {
@@ -252,6 +264,19 @@ export class MerkleTreeWalker {
 
     private entryIsSymlink(entry: Entry) {
         return entry[1] === FileType.SymbolicLink
+    }
+
+    private reportTimings() {
+        telemetryService.captureIndexingTimings({
+            totalTime: this.timings.totalTime,
+            dirNumber: this.timings.dirs,
+            traversalIgnoreTime: this.timings.ignoreTime,
+            listDir: this.timings.listDir,
+            listDirCacheHits: this.timings.listDirCacheHits,
+            ignoreFile: this.timings.ignoreFile,
+            ignoreCacheHits: this.timings.ignoreCacheHits,
+            merkleTreeTime: this.timings.merkleTree,
+        })
     }
 }
 

@@ -99,7 +99,7 @@ describe('MerkleTreeNode', () => {
         }
     })
 
-    it('toTreeNodes should exclude excluded nodes', async () => {
+    it('toTreeNodesGenerator should exclude excluded nodes', async () => {
         // Setup a tree with some excluded nodes
         const file1Node = new MerkleTreeNode('file1.txt', 'file')
         file1Node.excluded = true // Mark as excluded
@@ -120,7 +120,7 @@ describe('MerkleTreeNode', () => {
         Object.defineProperty(rootNode, 'calculatedHash', { value: 'roothash' })
 
         // Convert to tree nodes
-        const treeNodes = Array.from(rootNode.toTreeNodes())
+        const treeNodes = Array.from(rootNode.toTreeNodesGenerator())
 
         // Verify excluded nodes are not in the result
         expect(treeNodes.length).to.equal(3) // root, subdir, file2 (file1 and file3 are excluded)

@@ -85,13 +85,13 @@ export class MerkleTreeNode {
      * @param parentId - The parent node id.
      * @returns A generator of tree nodes.
      */
-    *toTreeNodes(parentId?: string): Generator<TreeNode> {
+    *toTreeNodesGenerator(parentId?: string): Generator<TreeNode> {
         yield this.toTreeNode(parentId)
         for (const child of this.children) {
             if (child.excluded) {
                 continue
             }
-            yield* child.toTreeNodes(this.hash)
+            yield* child.toTreeNodesGenerator(this.hash)
         }
     }
 
@@ -102,6 +102,7 @@ export class MerkleTreeNode {
     toLeafNodesMap(): Map<string, MerkleTreeNode> {
         const map = new Map<string, MerkleTreeNode>()
 
+        // Depth-first search to populate the map
         function dfs(node: MerkleTreeNode) {
             if (node.type === 'file' && !node.excluded) {
                 map.set(node.hash, node)

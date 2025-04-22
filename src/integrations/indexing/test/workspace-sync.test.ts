@@ -143,7 +143,7 @@ describe('WorkspaceSync', () => {
 
             // Create a mock MerkleTreeWalker that returns predetermined test nodes
             const mockTree = {
-                toTreeNodes: () => testTreeNodes,
+                toTreeNodesGenerator: () => testTreeNodes,
                 toLeafNodesMap: () =>
                     new Map([
                         ['hash1', { hash: 'hash1', path: 'file1.txt', content: 'content1' }],

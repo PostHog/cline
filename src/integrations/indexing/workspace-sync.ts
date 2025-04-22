@@ -11,14 +11,19 @@ export class WorkspaceSync {
     private configManager: ConfigManager
 
     private workspacePath: string
-    private branch: string
+    private branchHash: string
     private codebaseId: string | null
 
-    constructor(context: vscode.ExtensionContext, configManager: ConfigManager, workspacePath: string, branch: string) {
+    constructor(
+        context: vscode.ExtensionContext,
+        configManager: ConfigManager,
+        workspacePath: string,
+        branchHash: string
+    ) {
         this.context = context
         this.configManager = configManager
         this.workspacePath = workspacePath
-        this.branch = branch
+        this.branchHash = branchHash
         this.codebaseId = null
     }
 
@@ -41,11 +46,11 @@ export class WorkspaceSync {
         }
 
         const merkleTree = await new MerkleTreeWalker(this.workspacePath).buildTree()
-        const treeNodes = Array.from(merkleTree.toTreeNodes())
+        const treeNodes = Array.from(merkleTree.toTreeNodesGenerator())
         const status = await this.checkSyncedCodebase(treeNodes)
 
         const syncStatus: SyncStatus = {
-            hash: this.branch,
+            hash: this.branchHash,
             ts: Date.now(),
         }
         await this.context.workspaceState.update(this.lastSyncKey, syncStatus)
@@ -92,7 +97,7 @@ export class WorkspaceSync {
             },
             body: JSON.stringify({
                 tree: treeNodes,
-                branch: this.branch,
+                branchHash: this.branchHash,
             }),
         })
         const data = (await response.json()) as CodebaseSyncStatus
@@ -132,8 +137,8 @@ export class WorkspaceSync {
     }
 
     /**
-     * Returns true if the codebase cab be synced.
-     * Two conditions: timestamp has changed, or branch has changed.
+     * Returns true if the codebase can be synced.
+     * Two conditions: timestamp has changed, or branchHash has changed.
      */
     private get canSync(): boolean {
         if (!this.codebaseId) {
@@ -146,6 +151,6 @@ export class WorkspaceSync {
         }
 
         const tenMinutesAgo = Date.now() - 1000 * 60 * 10 // 10m
-        return lastSyncStatus.ts < tenMinutesAgo || lastSyncStatus.hash !== this.branch
+        return lastSyncStatus.ts < tenMinutesAgo || lastSyncStatus.hash !== this.branchHash
     }
 }
