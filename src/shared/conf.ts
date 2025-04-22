@@ -9,7 +9,7 @@ import { HistoryItem } from './HistoryItem'
 import { TelemetrySetting } from './TelemetrySetting'
 import { UserInfo } from './UserInfo'
 
-type SecretKey = 'posthogApiKey'
+type SecretKey = 'posthogApiKey' | 'encryptionKey'
 
 type GlobalStateKey =
     | 'apiProvider'
@@ -37,6 +37,19 @@ export interface ExtensionStorageState {
     userInfo?: UserInfo
     telemetrySetting: TelemetrySetting
     enableTabAutocomplete?: boolean
+}
+
+export async function clearStorage(context: ExtensionContext, secrets: string[] = []) {
+    const globalStatePromises = context.globalState.keys().map((key) => context.globalState.update(key, undefined))
+    const workspaceStatePromises = context.workspaceState
+        .keys()
+        .map((key) => context.workspaceState.update(key, undefined))
+
+    const defaultKeys: SecretKey[] = ['posthogApiKey', 'encryptionKey']
+    const secretKeys = [...defaultKeys, ...secrets]
+    const secretPromises = secretKeys.map((key) => context.secrets.delete(key))
+
+    await Promise.all([...globalStatePromises, ...workspaceStatePromises, ...secretPromises])
 }
 
 export class ConfigManager {
@@ -249,14 +262,7 @@ export class ConfigManager {
     }
 
     async clearAllData() {
-        const globalStatePromises = this.context.globalState
-            .keys()
-            .map((key) => this.context.globalState.update(key, undefined))
-
-        const secretKeys: SecretKey[] = ['posthogApiKey']
-        const secretPromises = secretKeys.map((key) => this.deleteSecretValue(key))
-
-        await Promise.all([...globalStatePromises, ...secretPromises])
+        return clearStorage(this.context)
     }
 
     checkIfOnboardingCompleted(state: ExtensionStorageState): boolean {

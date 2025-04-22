@@ -480,7 +480,7 @@ export async function activate(context: vscode.ExtensionContext) {
     )
 
     // Codebase indexing
-    const pathObfuscator = new PathObfuscator(context)
+    const pathObfuscator = new PathObfuscator(configManager)
     const codebaseIndexer = new CodebaseIndexer(context, configManager, pathObfuscator)
     context.subscriptions.push(codebaseIndexer)
 

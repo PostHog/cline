@@ -1,25 +1,18 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto'
 
-import * as vscode from 'vscode'
-
-import { Logger } from '../../services/logging/Logger'
-
-export const ENCRYPTION_KEY_NAME = 'encryption-key'
+import { ConfigManager } from '~/shared/conf'
 
 export class PathObfuscator {
-    private initPromise: Promise<void> | true
     private readonly ALGO = 'aes-256-gcm'
     private readonly NONCE_LEN = 6
     private readonly TAG_LEN = 16
 
     private encryptionKey: Buffer | null = null
 
-    constructor(private readonly context: vscode.ExtensionContext) {
-        this.initPromise = this.init()
-    }
+    constructor(private readonly configManager: ConfigManager) {}
 
     private async init() {
-        const existingKey = await this.context.secrets.get(ENCRYPTION_KEY_NAME)
+        const existingKey = await this.configManager.getSecretValue('encryptionKey')
         if (existingKey) {
             this.encryptionKey = Buffer.from(existingKey, 'hex')
         } else {
@@ -27,26 +20,14 @@ export class PathObfuscator {
             const newKey = randomBytes(32).toString('hex')
 
             // Store the key in VSCode's secret storage
-            await this.context.secrets.store(ENCRYPTION_KEY_NAME, newKey)
+            await this.configManager.setSecretValue('encryptionKey', newKey)
 
             this.encryptionKey = Buffer.from(newKey, 'hex')
-        }
-        this.initPromise = true
-    }
-
-    private async awaitInit() {
-        try {
-            if (this.initPromise === true) {
-                return
-            }
-            await this.initPromise
-        } catch (error) {
-            Logger.log(`Error initializing path obfuscator: ${error}`)
         }
     }
 
     async obfuscatePath(path: string): Promise<string> {
-        await this.awaitInit()
+        await this.init()
 
         // split by / or . but *keep* the delimiters in the output
         const parts = path.split(/([/.])/) // ["src", "/", "utils", ".", "ts"]
@@ -54,7 +35,7 @@ export class PathObfuscator {
     }
 
     async revealPath(obfuscated: string): Promise<string> {
-        await this.awaitInit()
+        await this.init()
 
         // We can split only on "/" because "." was kept as delimiter above
         return obfuscated

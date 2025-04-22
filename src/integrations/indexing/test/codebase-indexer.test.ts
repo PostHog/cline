@@ -2,10 +2,9 @@ import { expect } from 'chai'
 import { restore, SinonFakeTimers, SinonStub, stub, useFakeTimers } from 'sinon'
 import * as vscode from 'vscode'
 
-import { ConfigManager } from '~/shared/conf'
+import { API as GitExtensionAPI } from '~/api/extensions/git'
+import { clearStorage, ConfigManager } from '~/shared/conf'
 
-import { API as GitExtensionAPI } from '../../../api/extensions/git'
-import { resetExtensionState } from '../../../test/utils'
 import { PathObfuscator } from '../../encryption'
 import { MerkleTreeNode } from '../merkle-tree-node'
 import { CodebaseIndexer } from '../sync'
@@ -52,7 +51,8 @@ describe('CodebaseIndexer Integration', () => {
         clock = useFakeTimers({ shouldClearNativeTimers: true })
 
         // Create PathObfuscator instance
-        pathObfuscator = new PathObfuscator(extensionContext)
+        const configManager = new ConfigManager(extensionContext)
+        pathObfuscator = new PathObfuscator(configManager)
 
         // Stub vscode.workspace.workspaceFolders
         const mockWorkspaceFolder = {
@@ -119,17 +119,17 @@ describe('CodebaseIndexer Integration', () => {
             return await task(progress, undefined as any)
         })
 
-        const configManager = stub(ConfigManager.prototype)
+        const configManagerStub = stub(ConfigManager.prototype)
 
         // Create the CodebaseIndexer instance
-        codebaseIndexer = new CodebaseIndexer(extensionContext, configManager, pathObfuscator)
+        codebaseIndexer = new CodebaseIndexer(extensionContext, configManagerStub, pathObfuscator)
 
         // Mock the getGitExtension method
         getGitExtensionStub = stub(codebaseIndexer as any, 'getGitExtension').resolves(mockGitApi)
     })
 
     afterEach(() => {
-        resetExtensionState(extensionContext, [])
+        clearStorage(extensionContext, [])
         restore()
         clock.restore()
     })
