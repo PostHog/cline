@@ -172,6 +172,7 @@ export interface PostHogSayTool {
     fileNames?: string[]
     fileName?: string
     events?: string[]
+    error?: boolean
 }
 
 // must keep in sync with system prompt

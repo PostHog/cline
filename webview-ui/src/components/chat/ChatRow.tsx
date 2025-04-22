@@ -353,11 +353,11 @@ export const ChatRowContent = ({
     }, [message.ask, message.say, message.text])
 
     if (tool) {
-        const toolIcon = (name: string) => (
+        const toolIcon = ({ name, isError = false }: { name: string; isError?: boolean }) => (
             <span
                 className={`codicon codicon-${name}`}
                 style={{
-                    color: 'var(--vscode-foreground)',
+                    color: isError ? 'var(--vscode-editorError-foreground)' : 'var(--vscode-foreground)',
                     marginBottom: '-1.5px',
                 }}
             ></span>
@@ -368,7 +368,7 @@ export const ChatRowContent = ({
                 return (
                     <>
                         <div style={headerStyle}>
-                            {toolIcon('edit')}
+                            {toolIcon({ name: 'edit' })}
                             <span style={{ fontWeight: 'bold' }}>Max wants to edit this file:</span>
                         </div>
                         <CodeAccordian
@@ -384,7 +384,7 @@ export const ChatRowContent = ({
                 return (
                     <>
                         <div style={headerStyle}>
-                            {toolIcon('new-file')}
+                            {toolIcon({ name: 'new-file' })}
                             <span style={{ fontWeight: 'bold' }}>Max wants to create a new file:</span>
                         </div>
                         <CodeAccordian
@@ -400,7 +400,7 @@ export const ChatRowContent = ({
                 return (
                     <>
                         <div style={headerStyle}>
-                            {toolIcon('file-code')}
+                            {toolIcon({ name: 'file-code' })}
                             <span style={{ fontWeight: 'bold' }}>
                                 {/* {message.type === "ask" ? "" : "PostHog read this file:"} */}
                                 Max wants to read this file:
@@ -462,7 +462,7 @@ export const ChatRowContent = ({
                 return (
                     <>
                         <div style={headerStyle}>
-                            {toolIcon('folder-opened')}
+                            {toolIcon({ name: 'folder-opened' })}
                             <span style={{ fontWeight: 'bold' }}>
                                 {message.type === 'ask'
                                     ? 'Max wants to view the top level files in this directory:'
@@ -482,7 +482,7 @@ export const ChatRowContent = ({
                 return (
                     <>
                         <div style={headerStyle}>
-                            {toolIcon('folder-opened')}
+                            {toolIcon({ name: 'folder-opened' })}
                             <span style={{ fontWeight: 'bold' }}>
                                 {message.type === 'ask'
                                     ? 'Max wants to recursively view all files in this directory:'
@@ -502,7 +502,7 @@ export const ChatRowContent = ({
                 return (
                     <>
                         <div style={headerStyle}>
-                            {toolIcon('file-code')}
+                            {toolIcon({ name: 'file-code' })}
                             <span style={{ fontWeight: 'bold' }}>
                                 {message.type === 'ask'
                                     ? 'Max wants to view source code definition names used in this directory:'
@@ -521,7 +521,7 @@ export const ChatRowContent = ({
                 return (
                     <>
                         <div style={headerStyle}>
-                            {toolIcon('search')}
+                            {toolIcon({ name: 'search' })}
                             <span style={{ fontWeight: 'bold' }}>
                                 Max wants to search this directory for <code>{tool.regex}</code>:
                             </span>
@@ -539,7 +539,7 @@ export const ChatRowContent = ({
                 return (
                     <>
                         <div style={headerStyle}>
-                            {toolIcon('graph-line')}
+                            {toolIcon({ name: 'graph-line' })}
                             <span style={{ fontWeight: 'bold' }}>
                                 {message.type == 'ask' ? 'Max wants to create an insight' : 'Max created an insight:'}
                             </span>
@@ -553,14 +553,24 @@ export const ChatRowContent = ({
                 )
             case 'addCaptureCalls':
                 const items = tool.events ?? tool.fileNames ?? []
+                const isError = tool.error ?? false
                 return (
                     <>
-                        <div style={headerStyle}>
-                            {toolIcon('add')}
-                            <span style={{ fontWeight: 600, color: 'var(--vscode-editor-foreground)' }}>
+                        <div style={{ ...headerStyle }}>
+                            {toolIcon({ name: 'add', isError })}
+                            <span
+                                style={{
+                                    fontWeight: 600,
+                                    color: isError
+                                        ? 'var(--vscode-editorError-foreground)'
+                                        : 'var(--vscode-editor-foreground)',
+                                }}
+                            >
                                 {message.type === 'ask'
                                     ? `Max wants to add tracking to ${items.length} files`
-                                    : `Added ${tool.events!.length} events to ${tool.fileName}`}
+                                    : isError
+                                      ? `Failed to add tracking to ${tool.fileName}`
+                                      : `Added ${tool.events!.length} events to ${tool.fileName}`}
                             </span>
                         </div>
                         {items.length > 0 && <ChatRowList items={items} />}
@@ -569,7 +579,7 @@ export const ChatRowContent = ({
             case 'createFeatureFlag':
                 return (
                     <div style={headerStyle}>
-                        {toolIcon('add')}
+                        {toolIcon({ name: 'add' })}
                         <span style={{ fontWeight: 'bold' }}>
                             {message.type === 'ask'
                                 ? 'Max wants to create a new feature flag'
@@ -580,7 +590,7 @@ export const ChatRowContent = ({
             case 'updateFeatureFlag':
                 return (
                     <div style={headerStyle}>
-                        {toolIcon('edit')}
+                        {toolIcon({ name: 'edit' })}
                         <span style={{ fontWeight: 'bold' }}>
                             {message.type === 'ask'
                                 ? 'Max wants to update a feature flag'
@@ -591,7 +601,7 @@ export const ChatRowContent = ({
             case 'listFeatureFlags':
                 return (
                     <div style={headerStyle}>
-                        {toolIcon('search')}
+                        {toolIcon({ name: 'search' })}
                         <span style={{ fontWeight: 'bold' }}>
                             {message.type === 'ask'
                                 ? 'Max wants access to read feature flags in your project'

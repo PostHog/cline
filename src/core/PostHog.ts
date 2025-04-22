@@ -2994,12 +2994,7 @@ export class PostHog {
 
                             const result = await this.addCaptureCallsTool(paths, { trackingConventions })
 
-                            telemetryService.captureToolUsage(
-                                this.taskId,
-                                block.name,
-                                this.shouldAutoApproveTool('write_to_file'),
-                                true
-                            )
+                            telemetryService.captureToolUsage(this.taskId, block.name, shouldAutoApprove, true)
 
                             pushToolResult(result)
                             break
@@ -4232,7 +4227,15 @@ export class PostHog {
 
                 // TODO: Remove duplicate events using the doctor
             } catch (error) {
-                this.say('text', `Failed to add analytics to ${relPath}`)
+                this.say(
+                    'tool',
+                    JSON.stringify({
+                        tool: 'addCaptureCalls',
+                        fileName: path.basename(relPath),
+                        events: [],
+                        error: true,
+                    } satisfies PostHogSayTool)
+                )
 
                 results.push({
                     path: relPath,
