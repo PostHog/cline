@@ -21,6 +21,7 @@ import { PostHogApiProvider } from './api/provider'
 import { codestralDefaultModelId } from './shared/api'
 import { CodeAnalyzer } from './analysis/codeAnalyzer'
 import { debounce } from './utils/debounce'
+import { ConfigManager } from './shared/conf'
 
 /*
 Built using https://github.com/microsoft/vscode-webview-ui-toolkit
@@ -42,7 +43,10 @@ export async function activate(context: vscode.ExtensionContext) {
     Logger.initialize(outputChannel)
     Logger.log('PostHog extension activated')
 
-    const sidebarProvider = new PostHogProvider(context, outputChannel)
+    const configManager = new ConfigManager(context)
+    const state = await configManager.init()
+
+    const sidebarProvider = new PostHogProvider(context, outputChannel, configManager)
 
     vscode.commands.executeCommand('setContext', 'posthog.isDevMode', IS_DEV && IS_DEV === 'true')
 
@@ -77,7 +81,8 @@ export async function activate(context: vscode.ExtensionContext) {
         Logger.log('Opening PostHog in new tab')
         // (this example uses webviewProvider activation event which is necessary to deserialize cached webview, but since we use retainContextWhenHidden, we don't need to use that event)
         // https://github.com/microsoft/vscode-extension-samples/blob/main/webview-sample/src/extension.ts
-        const tabProvider = new PostHogProvider(context, outputChannel)
+        await configManager.loadState()
+        const tabProvider = new PostHogProvider(context, outputChannel, configManager)
         //const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined
         const lastCol = Math.max(...vscode.window.visibleTextEditors.map((editor) => editor.viewColumn || 0))
 
@@ -110,7 +115,8 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(vscode.commands.registerCommand('posthog.openInNewTab', openPostHogInNewTab))
 
     const openSettingsPanel = async () => {
-        const tabProvider = new PostHogProvider(context, outputChannel)
+        await configManager.loadState()
+        const tabProvider = new PostHogProvider(context, outputChannel, configManager)
         const panel = vscode.window.createWebviewPanel('posthog.settings', 'PostHog Settings', vscode.ViewColumn.One, {
             enableScripts: true,
             retainContextWhenHidden: true,
@@ -144,7 +150,6 @@ export async function activate(context: vscode.ExtensionContext) {
     )
 
     // Tab autocomplete
-    const state = await sidebarProvider.getState()
     const autocompleteEnabled = state.enableTabAutocomplete
 
     // Register inline completion provider
@@ -158,7 +163,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 // 	throw new Error('No API completion provider found')
                 // }
                 // Default to codestral
-                const state = await sidebarProvider.getState()
+                const state = await configManager.loadState()
                 return new PostHogApiProvider(
                     codestralDefaultModelId,
                     state.apiConfiguration.posthogHost,
@@ -430,7 +435,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
                 if (targetStatus !== undefined) {
                     setupStatusBar(targetStatus)
-                    sidebarProvider.updateGlobalState('enableTabAutocomplete', targetStatus === StatusBarStatus.Enabled)
+                    configManager.setGlobalValue('enableTabAutocomplete', targetStatus === StatusBarStatus.Enabled)
                 }
                 quickPick.dispose()
             })
@@ -469,7 +474,7 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     )
 
-    return createPostHogAPI(outputChannel, sidebarProvider)
+    return createPostHogAPI(outputChannel, sidebarProvider, configManager)
 }
 
 // This method is called when your extension is deactivated
