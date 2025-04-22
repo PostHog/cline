@@ -1,10 +1,12 @@
+import * as fs from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
+
 import ignore, { Ignore } from 'ignore'
 import limit from 'p-limit'
 import { FileType } from 'vscode'
-import { fileURLToPath } from 'node:url'
-import * as fs from 'node:fs/promises'
-import { joinPathsToUri } from '../../utils/uri'
+
 import { ignoreDirsAndFiles } from '../../utils/exclusions'
+import { joinPathsToUri } from '../../utils/uri'
 import { MerkleTreeNode } from './merkle-tree-node'
 
 type Entry = [string, FileType]

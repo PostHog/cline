@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react'
-import { vscode } from '../../utils/vscode'
+import { vscode } from 'ui/utils/vscode'
 import DOMPurify from 'dompurify'
 import { getSafeHostname, formatUrlForOpening, checkIfImageUrl } from './McpRichUtil'
 import ChatErrorBoundary from '../chat/ChatErrorBoundary'

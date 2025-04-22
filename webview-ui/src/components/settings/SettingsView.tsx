@@ -1,14 +1,14 @@
 import { VSCodeButton, VSCodeCheckbox, VSCodeLink, VSCodeTextArea } from '@vscode/webview-ui-toolkit/react'
 import { memo, useCallback, useEffect, useState } from 'react'
-import { useExtensionState } from '../../context/ExtensionStateContext'
-import { vscode } from '../../utils/vscode'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
+import { vscode } from 'ui/utils/vscode'
 import ApiOptions from './ApiOptions'
 import { TabButton } from '../mcp/McpView'
 import { useEvent } from 'react-use'
-import { ExtensionMessage } from '../../../../src/shared/ExtensionMessage'
+import { ExtensionMessage } from '~//shared/ExtensionMessage'
 import AutocompleteOptions from './AutocompleteOptions'
 import AutoApproveMenu from './AutoApproveMenu'
-import { getAsVar, VSC_TITLEBAR_INACTIVE_FOREGROUND } from '../../utils/vscStyles'
+import { getAsVar, VSC_TITLEBAR_INACTIVE_FOREGROUND } from 'ui/utils/vscStyles'
 import PostHogConfigOptions from './PostHogConfigOptions'
 const { IS_DEV } = process.env
 

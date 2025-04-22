@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
-import { useExtensionState } from '../../context/ExtensionStateContext'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
 import { HedgehogBuddy } from '../hedgehog/HedgehogBuddy'
-import { uuid } from '../../utils/utils'
+import { uuid } from 'ui/utils/utils'
 
 const HEADLINES = [
     'How can I help you build?',

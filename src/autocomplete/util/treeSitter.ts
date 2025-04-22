@@ -1,10 +1,11 @@
 import fs from 'node:fs'
-import path from 'path'
 
+import path from 'path'
 import Parser, { Language } from 'web-tree-sitter'
+
 import { getUriFileExtension } from '../../utils/uri'
-import { FileSymbolMap, SymbolWithRange } from '../types'
 import { readFile } from '../../utils/vscode'
+import { FileSymbolMap, SymbolWithRange } from '../types'
 
 export enum LanguageName {
     CPP = 'cpp',

@@ -1,13 +1,14 @@
-import * as vscode from 'vscode'
 import { expect } from 'chai'
-import { stub, SinonStub, restore, useFakeTimers, SinonFakeTimers } from 'sinon'
-import { CodebaseIndexer } from '../sync'
-import { WorkspaceSync } from '../workspace-sync'
-import { ExtensionConfig } from '../types'
-import { PathObfuscator } from '../../encryption'
-import { resetExtensionState } from '../../../test/utils'
+import { restore, SinonFakeTimers, SinonStub, stub, useFakeTimers } from 'sinon'
+import * as vscode from 'vscode'
+
 import { API as GitExtensionAPI } from '../../../api/extensions/git'
+import { resetExtensionState } from '../../../test/utils'
+import { PathObfuscator } from '../../encryption'
 import { MerkleTreeNode } from '../merkle-tree-node'
+import { CodebaseIndexer } from '../sync'
+import { ExtensionConfig } from '../types'
+import { WorkspaceSync } from '../workspace-sync'
 
 describe('CodebaseIndexer Integration', () => {
     let extensionContext: vscode.ExtensionContext

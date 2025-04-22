@@ -1,7 +1,8 @@
-import * as vscode from 'vscode'
 import { expect } from 'chai'
-import { ENCRYPTION_KEY_NAME, PathObfuscator } from '../path-obfuscator'
+import * as vscode from 'vscode'
+
 import { resetExtensionState } from '../../../test/utils'
+import { ENCRYPTION_KEY_NAME, PathObfuscator } from '../path-obfuscator'
 
 describe('PathObfuscator', () => {
     let extensionContext: vscode.ExtensionContext

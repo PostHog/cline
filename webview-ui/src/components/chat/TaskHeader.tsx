@@ -1,8 +1,8 @@
 import { VSCodeButton } from '@vscode/webview-ui-toolkit/react'
 import React, { memo } from 'react'
-import { mentionRegexGlobal } from '../../../../src/shared/context-mentions'
-import { vscode } from '../../utils/vscode'
-import { PostHogMessage } from '../../../../src/shared/ExtensionMessage'
+import { mentionRegexGlobal } from '~//shared/context-mentions'
+import { vscode } from 'ui/utils/vscode'
+import { PostHogMessage } from '~//shared/ExtensionMessage'
 
 interface TaskHeaderProps {
     task: PostHogMessage

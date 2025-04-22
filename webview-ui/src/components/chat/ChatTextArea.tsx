@@ -3,25 +3,25 @@ import React, { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, us
 import DynamicTextArea from 'react-textarea-autosize'
 import { useClickAway, useEvent, useWindowSize } from 'react-use'
 import styled from 'styled-components'
-import { mentionRegex, mentionRegexGlobal } from '../../../../src/shared/context-mentions'
-import { ExtensionMessage } from '../../../../src/shared/ExtensionMessage'
-import { useExtensionState } from '../../context/ExtensionStateContext'
+import { mentionRegex, mentionRegexGlobal } from '~//shared/context-mentions'
+import { ExtensionMessage } from '~//shared/ExtensionMessage'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
 import {
     ContextMenuOptionType,
     getContextMenuOptions,
     insertMention,
     removeMention,
     shouldShowContextMenu,
-} from '../../utils/context-mentions'
-import { useMetaKeyDetection, useShortcut } from '../../utils/hooks'
-import { vscode } from '../../utils/vscode'
+} from 'ui/utils/context-mentions'
+import { useMetaKeyDetection, useShortcut } from 'ui/utils/hooks'
+import { vscode } from 'ui/utils/vscode'
 import { CODE_BLOCK_BG_COLOR } from '../common/CodeBlock'
 import Thumbnails from '../common/Thumbnails'
 import Tooltip from '../common/Tooltip'
 import ApiOptions, { normalizeApiConfiguration } from '../settings/ApiOptions'
 import { MAX_IMAGES_PER_MESSAGE } from './ChatView'
 import ContextMenu from './ContextMenu'
-import { ChatSettings } from '../../../../src/shared/ChatSettings'
+import { ChatSettings } from '~//shared/ChatSettings'
 
 interface ChatTextAreaProps {
     inputValue: string

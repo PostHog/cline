@@ -1,8 +1,8 @@
 import ignore from 'ignore'
 
-import { AutocompleteHelperVars } from '../util/AutocompleteHelperVars'
-import { getWorkspaceDirs } from '../../utils/vscode'
 import { findUriInDirs } from '../../utils/uri'
+import { getWorkspaceDirs } from '../../utils/vscode'
+import { AutocompleteHelperVars } from '../util/AutocompleteHelperVars'
 
 async function isDisabledForFile(currentFilepath: string, disableInFiles: string[] | undefined) {
     if (disableInFiles) {

@@ -1,5 +1,7 @@
+import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto'
+
 import * as vscode from 'vscode'
-import { createHmac, randomBytes, createCipheriv, createDecipheriv } from 'node:crypto'
+
 import { Logger } from '../../services/logging/Logger'
 
 export const ENCRYPTION_KEY_NAME = 'encryption-key'

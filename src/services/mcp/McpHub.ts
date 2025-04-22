@@ -1,5 +1,8 @@
+import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
+
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { StdioClientTransport, StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js'
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import {
     CallToolResultSchema,
     ListResourcesResultSchema,
@@ -8,12 +11,14 @@ import {
     ReadResourceResultSchema,
 } from '@modelcontextprotocol/sdk/types.js'
 import chokidar, { FSWatcher } from 'chokidar'
-import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
 import deepEqual from 'fast-deep-equal'
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import * as vscode from 'vscode'
 import { z } from 'zod'
+
+import { PostHogProvider } from '~/core/webview/PostHogProvider'
+import { GlobalFileNames } from '~/global-constants'
 import {
     DEFAULT_MCP_TIMEOUT_SECONDS,
     McpMode,
@@ -24,13 +29,10 @@ import {
     McpTool,
     McpToolCallResponse,
     MIN_MCP_TIMEOUT_SECONDS,
-} from '../../shared/mcp'
-import { fileExistsAtPath } from '../../utils/fs'
-import { arePathsEqual } from '../../utils/path'
-import { secondsToMs } from '../../utils/time'
-import { GlobalFileNames } from '../../global-constants'
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
-import { PostHogProvider } from '../../core/webview/PostHogProvider'
+} from '~/shared/mcp'
+import { fileExistsAtPath } from '~/utils/fs'
+import { arePathsEqual } from '~/utils/path'
+import { secondsToMs } from '~/utils/time'
 
 export type McpConnection = {
     server: McpServer

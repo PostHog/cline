@@ -1,15 +1,15 @@
 import { VSCodeCheckbox, VSCodeTextField } from '@vscode/webview-ui-toolkit/react'
 import { useCallback } from 'react'
 import styled from 'styled-components'
-import { useExtensionState } from '../../context/ExtensionStateContext'
-import { AutoApprovalSettings } from '../../../../src/shared/AutoApprovalSettings'
-import { vscode } from '../../utils/vscode'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
+import { AutoApprovalSettings } from '~//shared/AutoApprovalSettings'
+import { vscode } from 'ui/utils/vscode'
 import {
     getAsVar,
     VSC_FOREGROUND,
     VSC_TITLEBAR_INACTIVE_FOREGROUND,
     VSC_DESCRIPTION_FOREGROUND,
-} from '../../utils/vscStyles'
+} from 'ui/utils/vscStyles'
 
 interface AutoApproveMenuProps {
     style?: React.CSSProperties

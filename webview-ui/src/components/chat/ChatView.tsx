@@ -10,12 +10,12 @@ import {
     PostHogSayBrowserAction,
     PostHogSayTool,
     ExtensionMessage,
-} from '../../../../src/shared/ExtensionMessage'
-import { findLast } from '../../../../src/shared/array'
-import { combineApiRequests } from '../../../../src/shared/combineApiRequests'
-import { combineCommandSequences } from '../../../../src/shared/combineCommandSequences'
-import { useExtensionState } from '../../context/ExtensionStateContext'
-import { vscode } from '../../utils/vscode'
+} from '~//shared/ExtensionMessage'
+import { findLast } from '~//shared/array'
+import { combineApiRequests } from '~//shared/combineApiRequests'
+import { combineCommandSequences } from '~//shared/combineCommandSequences'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
+import { vscode } from 'ui/utils/vscode'
 import HistoryPreview from '../history/HistoryPreview'
 import { normalizeApiConfiguration } from '../settings/ApiOptions'
 import BrowserSessionRow from './BrowserSessionRow'

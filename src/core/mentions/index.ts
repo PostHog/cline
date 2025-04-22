@@ -1,15 +1,16 @@
-import * as vscode from 'vscode'
-import * as path from 'path'
-import { openFile } from '../../integrations/misc/open-file'
-import { UrlContentFetcher } from '../../services/browser/UrlContentFetcher'
-import { mentionRegexGlobal } from '../../shared/context-mentions'
 import fs from 'fs/promises'
-import { extractTextFromFile } from '../../integrations/misc/extract-text'
 import { isBinaryFile } from 'isbinaryfile'
-import { diagnosticsToProblemsString } from '../../integrations/diagnostics'
-import { getLatestTerminalOutput } from '../../integrations/terminal/get-latest-output'
-import { getCommitInfo } from '../../utils/git'
-import { getWorkingState } from '../../utils/git'
+import * as path from 'path'
+import * as vscode from 'vscode'
+
+import { diagnosticsToProblemsString } from '~/integrations/diagnostics'
+import { extractTextFromFile } from '~/integrations/misc/extract-text'
+import { openFile } from '~/integrations/misc/open-file'
+import { getLatestTerminalOutput } from '~/integrations/terminal/get-latest-output'
+import { UrlContentFetcher } from '~/services/browser/UrlContentFetcher'
+import { mentionRegexGlobal } from '~/shared/context-mentions'
+import { getCommitInfo } from '~/utils/git'
+import { getWorkingState } from '~/utils/git'
 
 export function openMention(mention?: string): void {
     if (!mention) {

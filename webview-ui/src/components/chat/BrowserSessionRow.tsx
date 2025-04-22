@@ -3,15 +3,10 @@ import deepEqual from 'fast-deep-equal'
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useSize } from 'react-use'
 import styled from 'styled-components'
-import { BROWSER_VIEWPORT_PRESETS } from '../../../../src/shared/BrowserSettings'
-import {
-    BrowserAction,
-    BrowserActionResult,
-    PostHogMessage,
-    PostHogSayBrowserAction,
-} from '../../../../src/shared/ExtensionMessage'
-import { useExtensionState } from '../../context/ExtensionStateContext'
-import { vscode } from '../../utils/vscode'
+import { BROWSER_VIEWPORT_PRESETS } from '~//shared/BrowserSettings'
+import { BrowserAction, BrowserActionResult, PostHogMessage, PostHogSayBrowserAction } from '~//shared/ExtensionMessage'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
+import { vscode } from 'ui/utils/vscode'
 import { BrowserSettingsMenu } from '../browser/BrowserSettingsMenu'
 import { CheckpointControls } from '../common/CheckpointControls'
 import CodeBlock, { CODE_BLOCK_BG_COLOR } from '../common/CodeBlock'

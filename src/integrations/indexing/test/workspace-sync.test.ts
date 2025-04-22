@@ -1,10 +1,11 @@
-import * as vscode from 'vscode'
 import { expect } from 'chai'
-import { stub, SinonStub, restore } from 'sinon'
-import { WorkspaceSync } from '../workspace-sync'
-import { ExtensionConfig, SyncStatus, CodebaseSyncStatus, TreeNode } from '../types'
+import { restore, SinonStub, stub } from 'sinon'
+import * as vscode from 'vscode'
+
 import { resetExtensionState } from '../../../test/utils'
+import { CodebaseSyncStatus, ExtensionConfig, SyncStatus, TreeNode } from '../types'
 import { MerkleTreeWalker } from '../walker'
+import { WorkspaceSync } from '../workspace-sync'
 
 describe('WorkspaceSync', () => {
     let extensionContext: vscode.ExtensionContext

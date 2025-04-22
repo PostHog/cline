@@ -1,6 +1,5 @@
 import { Anthropic } from '@anthropic-ai/sdk'
-import { withExponentialBackoff } from './utils/fetch'
-import { ApiStreamChunk, streamSse } from './utils/stream'
+
 import {
     anthropicDefaultModelId,
     AnthropicModelId,
@@ -12,6 +11,8 @@ import {
     openaiModels,
 } from '../shared/api'
 import { allModels } from '../shared/api'
+import { withExponentialBackoff } from './utils/fetch'
+import { ApiStreamChunk, streamSse } from './utils/stream'
 
 export class PostHogApiProvider {
     private apiBase: string

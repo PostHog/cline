@@ -1,8 +1,8 @@
+import * as fs from 'fs'
 import * as path from 'path'
-import * as vscode from 'vscode'
 import * as sqlite3 from 'sqlite3'
 import { promisify } from 'util'
-import * as fs from 'fs'
+import * as vscode from 'vscode'
 
 export class DatabaseService {
     private static instance: DatabaseService

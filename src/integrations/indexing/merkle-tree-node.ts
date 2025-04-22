@@ -1,9 +1,11 @@
-import { fileURLToPath } from 'node:url'
 import * as fs from 'node:fs/promises'
-import { createHash } from 'crypto'
-import { TreeNode, TreeNodeType } from './types'
-import { isBinaryFile } from 'isbinaryfile'
 import { extname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+import { createHash } from 'crypto'
+import { isBinaryFile } from 'isbinaryfile'
+
+import { TreeNode, TreeNodeType } from './types'
 
 export class MerkleTreeNode {
     private calculatedHash: string | null = null

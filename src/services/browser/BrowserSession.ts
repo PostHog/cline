@@ -1,14 +1,16 @@
-import * as vscode from 'vscode'
+import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
+
 import * as fs from 'fs/promises'
+import pWaitFor from 'p-wait-for'
 import * as path from 'path'
-import { Browser, Page, ScreenshotOptions, TimeoutError, launch } from 'puppeteer-core'
 // @ts-ignore
 import PCR from 'puppeteer-chromium-resolver'
-import pWaitFor from 'p-wait-for'
-import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
-import { fileExistsAtPath } from '../../utils/fs'
-import { BrowserActionResult } from '../../shared/ExtensionMessage'
-import { BrowserSettings } from '../../shared/BrowserSettings'
+import { Browser, launch, Page, ScreenshotOptions, TimeoutError } from 'puppeteer-core'
+import * as vscode from 'vscode'
+
+import { BrowserSettings } from '~/shared/BrowserSettings'
+import { BrowserActionResult } from '~/shared/ExtensionMessage'
+import { fileExistsAtPath } from '~/utils/fs'
 // import * as chromeLauncher from "chrome-launcher"
 
 interface PCRStats {

@@ -1,13 +1,14 @@
-import * as vscode from 'vscode'
-import PQueue from 'p-queue'
 import pDebounce from 'p-debounce'
+import PQueue from 'p-queue'
+import * as vscode from 'vscode'
+
+import { API as GitExtensionAPI } from '../../api/extensions/git'
+import { Logger } from '../../services/logging/Logger'
+import { getGitExtensionApi } from '../../shared/git'
 import { PathObfuscator } from '../encryption'
 import { ExtensionConfig } from './types'
-import { WorkspaceSync } from './workspace-sync'
-import { Logger } from '../../services/logging/Logger'
 import { walkDirCache } from './walker'
-import { getGitExtensionApi } from '../../shared/git'
-import { API as GitExtensionAPI } from '../../api/extensions/git'
+import { WorkspaceSync } from './workspace-sync'
 
 export class CodebaseIndexer implements vscode.Disposable {
     private initialized: boolean = false

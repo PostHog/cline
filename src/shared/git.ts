@@ -1,4 +1,5 @@
 import * as vscode from 'vscode'
+
 import type { GitExtension } from '../api/extensions/git'
 import { Logger } from '../services/logging/Logger'
 

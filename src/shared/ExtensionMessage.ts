@@ -1,8 +1,9 @@
 // type that represents json data that is sent from extension to webview, called ExtensionMessage and has 'type' enum which can be 'plusButtonClicked' or 'settingsButtonClicked' or 'hello'
 
-import { PostHogUsage } from '../analysis/codeAnalyzer'
-import { PostHogProject } from '../api/types'
-import { GitCommit } from '../utils/git'
+import { PostHogUsage } from '~/analysis/codeAnalyzer'
+import { PostHogProject } from '~/api/types'
+import { GitCommit } from '~/utils/git'
+
 import { ApiConfiguration } from './api'
 import { AutoApprovalSettings } from './AutoApprovalSettings'
 import { BrowserSettings } from './BrowserSettings'

@@ -1,9 +1,11 @@
-import { expect } from 'chai'
-import { MerkleTreeNode } from '../merkle-tree-node'
-import * as path from 'path'
 import * as fs from 'node:fs/promises'
-import * as os from 'os'
 import { fileURLToPath } from 'node:url'
+
+import { expect } from 'chai'
+import * as os from 'os'
+import * as path from 'path'
+
+import { MerkleTreeNode } from '../merkle-tree-node'
 
 describe('MerkleTreeNode', () => {
     let tempDir: string

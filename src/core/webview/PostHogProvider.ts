@@ -1,74 +1,51 @@
+import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
+
 import { Anthropic } from '@anthropic-ai/sdk'
 import axios from 'axios'
-import crypto from 'crypto'
 import { execa } from 'execa'
 import fs from 'fs/promises'
 import os from 'os'
 import pWaitFor from 'p-wait-for'
 import * as path from 'path'
 import * as vscode from 'vscode'
-import { openFile, openImage } from '../../integrations/misc/open-file'
-import { fetchOpenGraphData, isImageUrl } from '../../integrations/misc/link-preview'
-import { selectImages } from '../../integrations/misc/process-images'
-import { getTheme } from '../../integrations/theme/getTheme'
-import WorkspaceTracker from '../../integrations/workspace/WorkspaceTracker'
-import { McpHub } from '../../services/mcp/McpHub'
-import { UserInfo } from '../../shared/UserInfo'
-import {
-    allModels,
-    anthropicDefaultModelId,
-    ApiConfiguration,
-    ApiProvider,
-    CompletionApiProvider,
-    ModelInfo,
-} from '../../shared/api'
-import { findLast } from '../../shared/array'
-import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '../../shared/AutoApprovalSettings'
-import { BrowserSettings, DEFAULT_BROWSER_SETTINGS } from '../../shared/BrowserSettings'
-import { ChatContent } from '../../shared/ChatContent'
-import { ChatSettings } from '../../shared/ChatSettings'
-import { ExtensionMessage, ExtensionState, Invoke, Platform } from '../../shared/ExtensionMessage'
-import { HistoryItem } from '../../shared/HistoryItem'
-import { PostHogCheckpointRestore, WebviewMessage } from '../../shared/WebviewMessage'
-import { fileExistsAtPath } from '../../utils/fs'
-import { searchCommits } from '../../utils/git'
-import { PostHog } from '../PostHog'
+
+import { PostHogClient } from '~/api/posthogClient'
+import { PostHogApiProvider } from '~/api/provider'
+import { getHost } from '~/api/utils/host'
+import { setupStatusBar, StatusBarStatus } from '~/autocomplete/statusBar'
+import { GlobalFileNames } from '~/global-constants'
+import { cleanupLegacyCheckpoints } from '~/integrations/checkpoints/CheckpointMigration'
+import { fetchOpenGraphData, isImageUrl } from '~/integrations/misc/link-preview'
+import { openFile, openImage } from '~/integrations/misc/open-file'
+import { selectImages } from '~/integrations/misc/process-images'
+import { getTheme } from '~/integrations/theme/getTheme'
+import WorkspaceTracker from '~/integrations/workspace/WorkspaceTracker'
+import { McpHub } from '~/services/mcp/McpHub'
+import { telemetryService } from '~/services/telemetry/TelemetryService'
+import { ApiConfiguration } from '~/shared/api'
+import { findLast } from '~/shared/array'
+import { ChatContent } from '~/shared/ChatContent'
+import { ChatSettings } from '~/shared/ChatSettings'
+import { ConfigManager } from '~/shared/conf'
+import { ExtensionMessage, ExtensionState, Invoke, Platform } from '~/shared/ExtensionMessage'
+import { HistoryItem } from '~/shared/HistoryItem'
+import { TelemetrySetting } from '~/shared/TelemetrySetting'
+import { PostHogCheckpointRestore, WebviewMessage } from '~/shared/WebviewMessage'
+import { fileExistsAtPath } from '~/utils/fs'
+import { searchCommits } from '~/utils/git'
+import { getTotalTasksSize } from '~/utils/storage'
+
 import { openMention } from '../mentions'
+import { PostHog } from '../PostHog'
 import { getNonce } from './getNonce'
 import { getUri } from './getUri'
-import { telemetryService } from '../../services/telemetry/TelemetryService'
-import { TelemetrySetting } from '../../shared/TelemetrySetting'
-import { cleanupLegacyCheckpoints } from '../../integrations/checkpoints/CheckpointMigration'
-import CheckpointTracker from '../../integrations/checkpoints/CheckpointTracker'
-import { getTotalTasksSize } from '../../utils/storage'
-import { GlobalFileNames } from '../../global-constants'
-import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
-import { getStatusBarStatus, setupStatusBar, StatusBarStatus } from '../../autocomplete/statusBar'
-import { PostHogApiProvider } from '../../api/provider'
-import { PostHogClient } from '../../api/posthogClient'
-import { getHost } from '../../api/utils/host'
+
 /*
 https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
 
 https://github.com/KumarVariable/vscode-extension-sidebar-html/blob/master/src/customSidebarViewProvider.ts
 */
 
-type SecretKey = 'posthogApiKey'
-type GlobalStateKey =
-    | 'apiProvider'
-    | 'completionApiProvider'
-    | 'apiModelId'
-    | 'customInstructions'
-    | 'taskHistory'
-    | 'autoApprovalSettings'
-    | 'browserSettings'
-    | 'chatSettings'
-    | 'userInfo'
-    | 'telemetrySetting'
-    | 'thinkingEnabled'
-    | 'enableTabAutocomplete'
-    | 'posthogHost'
-    | 'posthogProjectId'
 export class PostHogProvider implements vscode.WebviewViewProvider {
     public static readonly sideBarId = 'posthog.SidebarProvider' // used in package.json as the view's id. This value cannot be changed due to how vscode caches views based on their id, and updating the id would break existing instances of the extension.
     public static readonly tabPanelId = 'posthog.TabPanelProvider'
@@ -77,17 +54,20 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
     private activeWebviews: Set<vscode.WebviewView | vscode.WebviewPanel> = new Set()
     private view?: vscode.WebviewView | vscode.WebviewPanel
     private posthog?: PostHog
+    private readonly configManager: ConfigManager
     workspaceTracker?: WorkspaceTracker
     mcpHub?: McpHub
 
     constructor(
         readonly context: vscode.ExtensionContext,
-        private readonly outputChannel: vscode.OutputChannel
+        private readonly outputChannel: vscode.OutputChannel,
+        configManager: ConfigManager
     ) {
         this.outputChannel.appendLine('PostHogProvider instantiated')
         PostHogProvider.activeInstances.add(this)
         this.workspaceTracker = new WorkspaceTracker(this)
         this.mcpHub = new McpHub(this)
+        this.configManager = configManager
 
         // Clean up legacy checkpoints
         cleanupLegacyCheckpoints(this.context.globalStorageUri.fsPath, this.outputChannel).catch((error) => {
@@ -127,7 +107,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
     // Auth methods
     async handleSignOut() {
         try {
-            await this.updateGlobalState('apiProvider', 'openrouter')
+            await this.configManager.setGlobalValue('apiProvider', 'openrouter')
             await this.postStateToWebview()
             vscode.window.showInformationMessage('Successfully logged out of PostHog')
         } catch (error) {
@@ -136,7 +116,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
     }
 
     async setUserInfo(info?: { displayName: string | null; email: string | null; photoURL: string | null }) {
-        await this.updateGlobalState('userInfo', info)
+        await this.configManager.setGlobalValue('userInfo', info)
     }
 
     public static getVisibleInstance(): PostHogProvider | undefined {
@@ -339,7 +319,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
     async initPostHogWithTask(task?: string, images?: string[]) {
         await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
         const { apiConfiguration, customInstructions, autoApprovalSettings, browserSettings, chatSettings } =
-            await this.getState()
+            await this.configManager.loadState()
         this.posthog = new PostHog(
             this,
             apiConfiguration,
@@ -355,7 +335,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
     async initPostHogWithHistoryItem(historyItem: HistoryItem) {
         await this.clearTask()
         const { apiConfiguration, customInstructions, autoApprovalSettings, browserSettings, chatSettings } =
-            await this.getState()
+            await this.configManager.loadState()
         this.posthog = new PostHog(
             this,
             apiConfiguration,
@@ -565,7 +545,10 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
                         break
                     case 'autoApprovalSettings':
                         if (message.autoApprovalSettings) {
-                            await this.updateGlobalState('autoApprovalSettings', message.autoApprovalSettings)
+                            await this.configManager.setGlobalValue(
+                                'autoApprovalSettings',
+                                message.autoApprovalSettings
+                            )
                             if (this.posthog) {
                                 this.posthog.autoApprovalSettings = message.autoApprovalSettings
                             }
@@ -574,7 +557,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
                         break
                     case 'browserSettings':
                         if (message.browserSettings) {
-                            await this.updateGlobalState('browserSettings', message.browserSettings)
+                            await this.configManager.setGlobalValue('browserSettings', message.browserSettings)
                             if (this.posthog) {
                                 this.posthog.updateBrowserSettings(message.browserSettings)
                             }
@@ -842,7 +825,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
                         break
                     }
                     case 'loadPosthogProjects': {
-                        const { apiConfiguration } = await this.getState()
+                        const { apiConfiguration } = await this.configManager.loadState()
                         const posthogClient = new PostHogClient(
                             getHost(apiConfiguration),
                             apiConfiguration.posthogApiKey
@@ -862,14 +845,14 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
     }
 
     async updateTelemetrySetting(telemetrySetting: TelemetrySetting) {
-        await this.updateGlobalState('telemetrySetting', telemetrySetting)
+        await this.configManager.setGlobalValue('telemetrySetting', telemetrySetting)
         const isOptedIn = telemetrySetting === 'enabled'
         telemetryService.updateTelemetryState(isOptedIn)
     }
 
     async toggleEnableTabAutocomplete(enableTabAutocomplete: boolean) {
         console.log('toggleEnableTabAutocomplete', enableTabAutocomplete)
-        await this.updateGlobalState('enableTabAutocomplete', enableTabAutocomplete)
+        await this.configManager.setGlobalValue('enableTabAutocomplete', enableTabAutocomplete)
         telemetryService.captureAutocompleteEnabled()
         if (enableTabAutocomplete) {
             setupStatusBar(StatusBarStatus.Enabled)
@@ -884,24 +867,25 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
         // Capture mode switch telemetry | Capture regardless of if we know the taskId
         telemetryService.captureModeSwitch(this.posthog?.taskId ?? '0', mode)
 
-        const { chatSettings } = await this.getState()
+        const { chatSettings } = await this.configManager.loadState()
 
         const currentModeChatSettings = chatSettings[mode]
-        this.updateGlobalState('apiProvider', currentModeChatSettings.apiProvider)
-        this.updateGlobalState('apiModelId', currentModeChatSettings.apiModelId)
-        this.updateGlobalState('thinkingEnabled', currentModeChatSettings.thinkingEnabled)
+        this.configManager.setGlobalValue('apiProvider', currentModeChatSettings.apiProvider)
+        this.configManager.setGlobalValue('apiModelId', currentModeChatSettings.apiModelId)
+        this.configManager.setGlobalValue('thinkingEnabled', currentModeChatSettings.thinkingEnabled)
 
         if (this.posthog) {
-            const { apiConfiguration: updatedApiConfiguration } = await this.getState()
-            this.posthog.api = new PostHogApiProvider(
-                updatedApiConfiguration.apiModelId,
-                updatedApiConfiguration.posthogHost,
-                updatedApiConfiguration.posthogApiKey,
-                updatedApiConfiguration.thinkingEnabled
-            )
+            const { apiConfiguration: updatedApiConfiguration } = await this.configManager.loadState()
+            if (updatedApiConfiguration.apiModelId) {
+                this.posthog.api = new PostHogApiProvider(
+                    updatedApiConfiguration.apiModelId,
+                    updatedApiConfiguration.posthogHost,
+                    updatedApiConfiguration.posthogApiKey,
+                    updatedApiConfiguration.thinkingEnabled
+                )
+            }
         }
-
-        await this.updateGlobalState('chatSettings', {
+        await this.configManager.setGlobalValue('chatSettings', {
             ...chatSettings,
             mode,
         })
@@ -955,35 +939,16 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
 
     async updateCustomInstructions(instructions?: string) {
         // User may be clearing the field
-        await this.updateGlobalState('customInstructions', instructions || undefined)
+        await this.configManager.setGlobalValue('customInstructions', instructions || undefined)
         if (this.posthog) {
             this.posthog.customInstructions = instructions || undefined
         }
     }
 
     async updateApiConfiguration(apiConfiguration: ApiConfiguration) {
-        const { apiProvider, apiModelId, posthogApiKey, thinkingEnabled, posthogHost, posthogProjectId } =
-            apiConfiguration
-        if (apiProvider) {
-            await this.updateGlobalState('apiProvider', apiProvider)
-        }
-        if (apiModelId) {
-            await this.updateGlobalState('apiModelId', apiModelId)
-        }
-        if (posthogHost) {
-            await this.updateGlobalState('posthogHost', posthogHost)
-        }
-        if (posthogApiKey) {
-            await this.storeSecret('posthogApiKey', posthogApiKey)
-        }
-        if (thinkingEnabled !== undefined) {
-            await this.updateGlobalState('thinkingEnabled', thinkingEnabled)
-        }
-        if (posthogProjectId) {
-            await this.updateGlobalState('posthogProjectId', posthogProjectId)
-        }
-        const { apiConfiguration: updatedApiConfiguration } = await this.getState()
-        if (this.posthog) {
+        await this.configManager.updateApiConfiguration(apiConfiguration)
+        const { apiConfiguration: updatedApiConfiguration } = await this.configManager.loadState()
+        if (this.posthog && updatedApiConfiguration.apiModelId) {
             this.posthog.api = new PostHogApiProvider(
                 updatedApiConfiguration.apiModelId,
                 updatedApiConfiguration.posthogHost,
@@ -994,7 +959,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
     }
 
     async updateChatSettings(chatSettings: ChatSettings) {
-        await this.updateGlobalState('chatSettings', chatSettings)
+        await this.configManager.setGlobalValue('chatSettings', chatSettings)
         await this.updateApiConfiguration(chatSettings[chatSettings.mode])
         if (this.posthog) {
             this.posthog.updateChatSettings(chatSettings)
@@ -1163,7 +1128,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
         uiMessagesFilePath: string
         apiConversationHistory: Anthropic.MessageParam[]
     }> {
-        const history = ((await this.getGlobalState('taskHistory')) as HistoryItem[] | undefined) || []
+        const history = (await this.configManager.getGlobalValue<HistoryItem[]>('taskHistory')) || []
         const historyItem = history.find((item) => item.id === id)
         if (historyItem) {
             const taskDirPath = path.join(this.context.globalStorageUri.fsPath, 'tasks', id)
@@ -1201,7 +1166,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
 
     async deleteAllTaskHistory() {
         await this.clearTask()
-        await this.updateGlobalState('taskHistory', undefined)
+        await this.configManager.setGlobalValue('taskHistory', undefined)
         try {
             // Remove all contents of tasks directory
             const taskDirPath = path.join(this.context.globalStorageUri.fsPath, 'tasks')
@@ -1275,9 +1240,9 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
 
     async deleteTaskFromState(id: string) {
         // Remove the task from history
-        const taskHistory = ((await this.getGlobalState('taskHistory')) as HistoryItem[] | undefined) || []
+        const taskHistory = (await this.configManager.getGlobalValue<HistoryItem[]>('taskHistory')) || []
         const updatedTaskHistory = taskHistory.filter((task) => task.id !== id)
-        await this.updateGlobalState('taskHistory', updatedTaskHistory)
+        await this.configManager.setGlobalValue('taskHistory', updatedTaskHistory)
 
         // Notify the webview that the task has been deleted
         await this.postStateToWebview()
@@ -1305,7 +1270,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
             userInfo,
             telemetrySetting,
             enableTabAutocomplete,
-        } = await this.getState()
+        } = await this.configManager.loadState()
 
         return {
             version: this.context.extension?.packageJSON?.version ?? '',
@@ -1356,7 +1321,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
     */
 
     // getApiConversationHistory(): Anthropic.MessageParam[] {
-    // 	// const history = (await this.getGlobalState(
+    // 	// const history = (await this.getGlobalValue(
     // 	// 	this.getApiConversationHistoryStateKey()
     // 	// )) as Anthropic.MessageParam[]
     // 	// return history || []
@@ -1364,7 +1329,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
     // }
 
     // setApiConversationHistory(history: Anthropic.MessageParam[] | undefined) {
-    // 	// await this.updateGlobalState(this.getApiConversationHistoryStateKey(), history)
+    // 	// await this.configManager.setGlobalValue(this.getApiConversationHistoryStateKey(), history)
     // 	this.apiConversationHistory = history || []
     // }
 
@@ -1377,147 +1342,16 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
     // 	return this.apiConversationHistory
     // }
 
-    /*
-    Storage
-    https://dev.to/kompotkot/how-to-use-secretstorage-in-your-vscode-extensions-2hco
-    https://www.eliostruyf.com/devhack-code-extension-storage-options/
-    */
-
-    async getState() {
-        const [
-            storedApiProvider,
-            storedCompletionApiProvider,
-            storedApiModelId,
-            posthogApiKey,
-            customInstructions,
-            taskHistory,
-            autoApprovalSettings,
-            browserSettings,
-            storedChatSettings,
-            userInfo,
-            telemetrySetting,
-            thinkingEnabled,
-            enableTabAutocomplete,
-            storedPostHogHost,
-            posthogProjectId,
-        ] = await Promise.all([
-            this.getGlobalState('apiProvider') as Promise<ApiProvider | undefined>,
-            this.getGlobalState('completionApiProvider') as Promise<CompletionApiProvider | undefined>,
-            this.getGlobalState('apiModelId') as Promise<string | undefined>,
-            this.getSecret('posthogApiKey') as Promise<string | undefined>,
-            this.getGlobalState('customInstructions') as Promise<string | undefined>,
-            this.getGlobalState('taskHistory') as Promise<HistoryItem[] | undefined>,
-            this.getGlobalState('autoApprovalSettings') as Promise<AutoApprovalSettings | undefined>,
-            this.getGlobalState('browserSettings') as Promise<BrowserSettings | undefined>,
-            this.getGlobalState('chatSettings') as Promise<ChatSettings | undefined>,
-            this.getGlobalState('userInfo') as Promise<UserInfo | undefined>,
-            this.getGlobalState('telemetrySetting') as Promise<TelemetrySetting | undefined>,
-            this.getGlobalState('thinkingEnabled') as Promise<boolean | undefined>,
-            this.getGlobalState('enableTabAutocomplete') as Promise<boolean | undefined>,
-            this.getGlobalState('posthogHost') as Promise<string | undefined>,
-            this.getGlobalState('posthogProjectId') as Promise<string | undefined>,
-        ])
-
-        let apiProvider: ApiProvider
-        if (storedApiProvider) {
-            apiProvider = storedApiProvider
-        } else {
-            // Either new user or legacy user that doesn't have the apiProvider stored in state
-            apiProvider = 'anthropic'
-        }
-        let apiModelId: keyof typeof allModels
-        if (storedApiModelId) {
-            apiModelId = storedApiModelId as keyof typeof allModels
-        } else {
-            apiModelId = anthropicDefaultModelId
-        }
-        let completionApiProvider: CompletionApiProvider
-        if (storedCompletionApiProvider) {
-            completionApiProvider = storedCompletionApiProvider
-        } else {
-            completionApiProvider = 'codestral'
-        }
-        let posthogHost: string
-        if (storedPostHogHost) {
-            posthogHost = storedPostHogHost
-        } else {
-            posthogHost = 'https://us.posthog.com'
-        }
-        let chatSettings: ChatSettings
-        if (storedChatSettings) {
-            chatSettings = storedChatSettings
-            // ensure all modes are present
-            for (const mode of ['ask', 'plan', 'act'] as const) {
-                if (chatSettings[mode] === undefined) {
-                    chatSettings[mode] = {
-                        apiProvider,
-                        apiModelId,
-                        thinkingEnabled,
-                    }
-                }
-            }
-        } else {
-            chatSettings = {
-                mode: 'ask',
-                ask: {
-                    apiProvider,
-                    apiModelId,
-                    thinkingEnabled,
-                },
-                plan: {
-                    apiProvider,
-                    apiModelId,
-                    thinkingEnabled,
-                },
-                act: {
-                    apiProvider,
-                    apiModelId,
-                    thinkingEnabled,
-                },
-            }
-        }
-
-        return {
-            apiConfiguration: {
-                apiProvider,
-                completionApiProvider,
-                apiModelId,
-                posthogHost,
-                posthogApiKey,
-                posthogProjectId,
-                thinkingEnabled,
-            },
-            customInstructions,
-            taskHistory,
-            autoApprovalSettings: autoApprovalSettings || DEFAULT_AUTO_APPROVAL_SETTINGS, // default value can be 0 or empty string
-            browserSettings: browserSettings || DEFAULT_BROWSER_SETTINGS,
-            chatSettings,
-            userInfo,
-            telemetrySetting: telemetrySetting || 'unset',
-            enableTabAutocomplete,
-        }
-    }
-
     async updateTaskHistory(item: HistoryItem): Promise<HistoryItem[]> {
-        const history = ((await this.getGlobalState('taskHistory')) as HistoryItem[]) || []
+        const history = (await this.configManager.getGlobalValue<HistoryItem[]>('taskHistory')) || []
         const existingItemIndex = history.findIndex((h) => h.id === item.id)
         if (existingItemIndex !== -1) {
             history[existingItemIndex] = item
         } else {
             history.push(item)
         }
-        await this.updateGlobalState('taskHistory', history)
+        await this.configManager.setGlobalValue('taskHistory', history)
         return history
-    }
-
-    // global
-
-    async updateGlobalState(key: GlobalStateKey, value: any) {
-        await this.context.globalState.update(key, value)
-    }
-
-    async getGlobalState(key: GlobalStateKey) {
-        return await this.context.globalState.get(key)
     }
 
     // private async clearState() {
@@ -1531,18 +1365,6 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
     // }
 
     // secrets
-
-    private async storeSecret(key: SecretKey, value?: string) {
-        if (value) {
-            await this.context.secrets.store(key, value)
-        } else {
-            await this.context.secrets.delete(key)
-        }
-    }
-
-    async getSecret(key: SecretKey) {
-        return await this.context.secrets.get(key)
-    }
 
     // Open Graph Data
 
@@ -1595,13 +1417,7 @@ export class PostHogProvider implements vscode.WebviewViewProvider {
 
     async resetState() {
         vscode.window.showInformationMessage('Resetting state...')
-        for (const key of this.context.globalState.keys()) {
-            await this.context.globalState.update(key, undefined)
-        }
-        const secretKeys: SecretKey[] = ['posthogApiKey']
-        for (const key of secretKeys) {
-            await this.storeSecret(key, undefined)
-        }
+        await this.configManager.clearAllData()
         if (this.posthog) {
             this.posthog.abortTask()
             this.posthog = undefined

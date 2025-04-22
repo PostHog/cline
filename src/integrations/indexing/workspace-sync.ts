@@ -1,7 +1,8 @@
 import * as vscode from 'vscode'
+
 import { Logger } from '../../services/logging/Logger'
-import { MerkleTreeWalker } from './walker'
 import { Codebase, CodebaseSyncStatus, ExtensionConfig, SyncStatus, TreeNode, UploadArtifactBody } from './types'
+import { MerkleTreeWalker } from './walker'
 
 export class WorkspaceSync {
     private context: vscode.ExtensionContext

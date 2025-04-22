@@ -7,9 +7,9 @@ import {
     VSCodeOption,
 } from '@vscode/webview-ui-toolkit/react'
 import { memo, useEffect, useState } from 'react'
-import { useExtensionState } from '../../context/ExtensionStateContext'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
 import VSCodeButtonLink from '../common/VSCodeButtonLink'
-import { vscode } from '../../utils/vscode'
+import { vscode } from 'ui/utils/vscode'
 
 const PostHogConfigOptions = () => {
     const { apiConfiguration, setApiConfiguration, posthogProjects } = useExtensionState()
