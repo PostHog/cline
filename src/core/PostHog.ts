@@ -1,12 +1,22 @@
-import { Anthropic } from '@anthropic-ai/sdk'
-import cloneDeep from 'clone-deep'
 import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
+
+import { Anthropic } from '@anthropic-ai/sdk'
+import async from 'async'
+import cloneDeep from 'clone-deep'
 import fs from 'fs/promises'
 import os from 'os'
+import pTimeout from 'p-timeout'
 import pWaitFor from 'p-wait-for'
 import * as path from 'path'
 import { serializeError } from 'serialize-error'
 import * as vscode from 'vscode'
+import { z } from 'zod'
+
+import { MaxTools, MaxToolsProvider } from '../api/maxTools'
+import { PostHogApiProvider } from '../api/provider'
+import { getHost } from '../api/utils/host'
+import { ApiStream, ApiStreamChunk } from '../api/utils/stream'
+import { GlobalFileNames } from '../global-constants'
 import CheckpointTracker from '../integrations/checkpoints/CheckpointTracker'
 import { DIFF_VIEW_URI_SCHEME, DiffViewProvider } from '../integrations/editor/DiffViewProvider'
 import { extractTextFromFile } from '../integrations/misc/extract-text'
@@ -16,6 +26,7 @@ import { BrowserSession } from '../services/browser/BrowserSession'
 import { UrlContentFetcher } from '../services/browser/UrlContentFetcher'
 import { listFiles } from '../services/glob/list-files'
 import { regexSearchFiles } from '../services/ripgrep'
+import { telemetryService } from '../services/telemetry/TelemetryService'
 import { parseSourceCodeForDefinitionsTopLevel } from '../services/tree-sitter'
 import { anthropicDefaultModelId, ApiConfiguration, inkeepDefaultModelId } from '../shared/api'
 import { findLast, findLastIndex, parsePartialArrayString } from '../shared/array'
@@ -24,11 +35,11 @@ import { BrowserSettings } from '../shared/BrowserSettings'
 import { ChatSettings } from '../shared/ChatSettings'
 import { combineApiRequests } from '../shared/combineApiRequests'
 import { combineCommandSequences, COMMAND_REQ_APP_STRING } from '../shared/combineCommandSequences'
-import async from 'async'
 import {
     BrowserAction,
     BrowserActionResult,
     browserActions,
+    COMPLETION_RESULT_CHANGES_FLAG,
     PostHogApiReqCancelReason,
     PostHogApiReqInfo,
     PostHogAsk,
@@ -39,36 +50,27 @@ import {
     PostHogSay,
     PostHogSayBrowserAction,
     PostHogSayTool,
-    COMPLETION_RESULT_CHANGES_FLAG,
 } from '../shared/ExtensionMessage'
 import { getApiMetrics } from '../shared/getApiMetrics'
 import { HistoryItem } from '../shared/HistoryItem'
+import { DEFAULT_LANGUAGE_SETTINGS, getLanguageKey, LanguageDisplay } from '../shared/Languages'
+import { validateSchemaWithDefault } from '../shared/validation'
 import { PostHogAskResponse, PostHogCheckpointRestore } from '../shared/WebviewMessage'
 import { fileExistsAtPath, isDirectory } from '../utils/fs'
 import { arePathsEqual, getReadablePath } from '../utils/path'
 import { fixModelHtmlEscaping, removeInvalidChars } from '../utils/string'
 import { AssistantMessageContent, parseAssistantMessage, ToolParamName, ToolUseName } from './assistant-message'
 import { constructNewFileContent } from './assistant-message/diff'
+import { checkIsAnthropicContextWindowError } from './context-management/context-error-handling'
+import { ContextManager } from './context-management/ContextManager'
+import { LOCK_TEXT_SYMBOL, PostHogIgnoreController } from './ignore/PostHogIgnoreController'
 import { parseMentions } from './mentions'
 import { formatResponse } from './prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT } from './prompts/system'
-import { ContextManager } from './context-management/ContextManager'
-import { ApiStream, ApiStreamChunk } from '../api/utils/stream'
-import { DEFAULT_LANGUAGE_SETTINGS, getLanguageKey, LanguageDisplay, LanguageKey } from '../shared/Languages'
-import { telemetryService } from '../services/telemetry/TelemetryService'
-import pTimeout from 'p-timeout'
-import { GlobalFileNames } from '../global-constants'
-import { checkIsAnthropicContextWindowError } from './context-management/context-error-handling'
-import { LOCK_TEXT_SYMBOL, PostHogIgnoreController } from './ignore/PostHogIgnoreController'
-import { PostHogProvider } from './webview/PostHogProvider'
-import { PostHogApiProvider } from '../api/provider'
 import { ADD_CAPTURE_CALLS_PROMPT } from './prompts/tools/add-capture-calls'
-import { ToolManager } from './tools/ToolManager'
 import { ToolInputValidationError } from './tools/base/errors'
-import { MaxTools, MaxToolsProvider } from '../api/maxTools'
-import { validateSchemaWithDefault } from '../shared/validation'
-import { z } from 'zod'
-import { getHost } from '../api/utils/host'
+import { ToolManager } from './tools/ToolManager'
+import { PostHogProvider } from './webview/PostHogProvider'
 
 const cwd =
     vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), 'Desktop') // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution

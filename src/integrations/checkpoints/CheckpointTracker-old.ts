@@ -1,11 +1,12 @@
 import fs from 'fs/promises'
+import { globby } from 'globby'
 import os from 'os'
 import * as path from 'path'
 import simpleGit, { SimpleGit } from 'simple-git'
 import * as vscode from 'vscode'
-import { fileExistsAtPath } from '../../utils/fs'
-import { globby } from 'globby'
-import { PostHogProvider } from '../../core/webview/PostHogProvider'
+
+import { PostHogProvider } from '~/core/webview/PostHogProvider'
+import { fileExistsAtPath } from '~/utils/fs'
 
 class CheckpointTracker {
     private providerRef: WeakRef<PostHogProvider>

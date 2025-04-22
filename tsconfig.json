@@ -1,5 +1,9 @@
 {
     "compilerOptions": {
+        "paths": {
+            "~/*": ["./src/*"],
+            "ui/*": ["./webview-ui/src/*"]
+        },
         "esModuleInterop": true,
         "experimentalDecorators": true,
         "forceConsistentCasingInFileNames": true,

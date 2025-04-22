@@ -1,7 +1,9 @@
 import * as vscode from 'vscode'
+
+import { PostHogProvider } from '~/core/webview/PostHogProvider'
+import { ConfigManager } from '~/shared/conf'
+
 import { PostHogAPI } from './posthog'
-import { PostHogProvider } from '../core/webview/PostHogProvider'
-import { ConfigManager } from '../shared/conf'
 
 export function createPostHogAPI(
     outputChannel: vscode.OutputChannel,

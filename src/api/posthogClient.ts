@@ -1,5 +1,6 @@
-import axios, { AxiosInstance, AxiosError } from 'axios'
+import axios, { AxiosError, AxiosInstance } from 'axios'
 import * as vscode from 'vscode'
+
 import { PostHogProject } from './types'
 
 export class PostHogClient {

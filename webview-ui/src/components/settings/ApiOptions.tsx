@@ -12,8 +12,8 @@ import {
     ModelInfo,
     openaiDefaultModelId,
     openaiModels,
-} from '../../../../src/shared/api'
-import { useExtensionState } from '../../context/ExtensionStateContext'
+} from '~//shared/api'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
 import ModelDescriptionMarkdown from './ModelDescriptionMarkdown'
 
 interface ApiOptionsProps {

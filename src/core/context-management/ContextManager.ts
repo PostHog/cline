@@ -1,6 +1,7 @@
 import { Anthropic } from '@anthropic-ai/sdk'
-import { PostHogApiReqInfo, PostHogMessage } from '../../shared/ExtensionMessage'
-import { PostHogApiProvider } from '../../api/provider'
+
+import { PostHogApiProvider } from '~/api/provider'
+import { PostHogApiReqInfo, PostHogMessage } from '~/shared/ExtensionMessage'
 
 export class ContextManager {
     getNewContextMessagesAndMetadata(

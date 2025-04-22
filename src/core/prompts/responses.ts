@@ -1,7 +1,8 @@
 import { Anthropic } from '@anthropic-ai/sdk'
 import * as diff from 'diff'
 import * as path from 'path'
-import { PostHogIgnoreController, LOCK_TEXT_SYMBOL } from '../ignore/PostHogIgnoreController'
+
+import { LOCK_TEXT_SYMBOL, PostHogIgnoreController } from '../ignore/PostHogIgnoreController'
 
 export const formatResponse = {
     toolDenied: () => `The user denied this operation.`,

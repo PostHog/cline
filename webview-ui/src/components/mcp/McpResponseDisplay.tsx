@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import LinkPreview from './LinkPreview'
 import ImagePreview from './ImagePreview'
-import { vscode } from '../../utils/vscode'
+import { vscode } from 'ui/utils/vscode'
 import DOMPurify from 'dompurify'
 import styled from 'styled-components'
 import { CODE_BLOCK_BG_COLOR } from '../common/CodeBlock'

@@ -1,9 +1,10 @@
-import { describe, it, beforeEach, afterEach } from 'mocha'
 import { expect } from 'chai'
-import * as vscode from 'vscode'
+import { afterEach, beforeEach, describe, it } from 'mocha'
 import type { UserInfo } from 'os'
 import sinon from 'sinon'
-import { ShellDetector } from '../utils/shell'
+import * as vscode from 'vscode'
+
+import { ShellDetector } from '~/utils/shell'
 
 describe('Shell Detection Tests', () => {
     let originalPlatform: string

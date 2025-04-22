@@ -1,5 +1,6 @@
 import { LRUCache } from 'lru-cache'
 import * as vscode from 'vscode'
+
 import { readFile } from '../utils/vscode'
 import { AutocompleteCodeSnippet, AutocompleteSnippetType } from './types'
 

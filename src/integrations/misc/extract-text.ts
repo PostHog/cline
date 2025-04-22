@@ -1,10 +1,11 @@
+import fs from 'fs/promises'
+import { isBinaryFile } from 'isbinaryfile'
+import mammoth from 'mammoth'
 import * as path from 'path'
 // @ts-ignore-next-line
 import pdf from 'pdf-parse/lib/pdf-parse'
-import mammoth from 'mammoth'
-import fs from 'fs/promises'
-import { isBinaryFile } from 'isbinaryfile'
-import { getFileSizeInKB } from '../../utils/fs'
+
+import { getFileSizeInKB } from '~/utils/fs'
 
 export async function extractTextFromFile(filePath: string): Promise<string> {
     try {

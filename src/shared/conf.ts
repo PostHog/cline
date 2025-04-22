@@ -1,10 +1,11 @@
 import { ExtensionContext } from 'vscode'
-import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from './AutoApprovalSettings'
+
 import { allModels, anthropicDefaultModelId, ApiConfiguration } from './api'
-import { BrowserSettings, DEFAULT_BROWSER_SETTINGS } from './BrowserSettings'
 import { ApiProvider, CompletionApiProvider } from './api'
-import { HistoryItem } from './HistoryItem'
+import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from './AutoApprovalSettings'
+import { BrowserSettings, DEFAULT_BROWSER_SETTINGS } from './BrowserSettings'
 import { ChatSettings } from './ChatSettings'
+import { HistoryItem } from './HistoryItem'
 import { TelemetrySetting } from './TelemetrySetting'
 import { UserInfo } from './UserInfo'
 
