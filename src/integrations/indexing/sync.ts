@@ -2,18 +2,19 @@ import pDebounce from 'p-debounce'
 import PQueue from 'p-queue'
 import * as vscode from 'vscode'
 
+import { ConfigManager } from '~/shared/conf'
+
 import { API as GitExtensionAPI } from '../../api/extensions/git'
 import { Logger } from '../../services/logging/Logger'
 import { getGitExtensionApi } from '../../shared/git'
 import { PathObfuscator } from '../encryption'
-import { ExtensionConfig } from './types'
 import { walkDirCache } from './walker'
 import { WorkspaceSync } from './workspace-sync'
 
 export class CodebaseIndexer implements vscode.Disposable {
     private initialized: boolean = false
     private context: vscode.ExtensionContext
-    private config: ExtensionConfig
+    private configManager: ConfigManager
     private pathObfuscator: PathObfuscator
     private disposables: vscode.Disposable[] = []
     private repoBranches: Map<string, string | undefined> = new Map()
@@ -22,9 +23,9 @@ export class CodebaseIndexer implements vscode.Disposable {
 
     private syncLocked: boolean = false
 
-    constructor(context: vscode.ExtensionContext, config: ExtensionConfig, pathObfuscator: PathObfuscator) {
+    constructor(context: vscode.ExtensionContext, configManager: ConfigManager, pathObfuscator: PathObfuscator) {
         this.context = context
-        this.config = config
+        this.configManager = configManager
         this.workspaceSyncServices = new Map()
         this.pathObfuscator = pathObfuscator
     }
@@ -111,7 +112,7 @@ export class CodebaseIndexer implements vscode.Disposable {
             workspaceDirs.map(async (workspaceDir) => {
                 const workspaceSync = new WorkspaceSync(
                     this.context,
-                    this.config,
+                    this.configManager,
                     workspaceDir.toString(),
                     this.repoBranches.get(workspaceDir.toString()) || ''
                 )

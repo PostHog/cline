@@ -1,20 +1,22 @@
 import * as vscode from 'vscode'
 
-import { Logger } from '../../services/logging/Logger'
-import { Codebase, CodebaseSyncStatus, ExtensionConfig, SyncStatus, TreeNode, UploadArtifactBody } from './types'
+import { Logger } from '~/services/logging/Logger'
+import { ConfigManager } from '~/shared/conf'
+
+import { Codebase, CodebaseSyncStatus, SyncStatus, TreeNode, UploadArtifactBody } from './types'
 import { MerkleTreeWalker } from './walker'
 
 export class WorkspaceSync {
     private context: vscode.ExtensionContext
-    private config: ExtensionConfig
+    private configManager: ConfigManager
 
     private workspacePath: string
     private branch: string
     private codebaseId: string | null
 
-    constructor(context: vscode.ExtensionContext, config: ExtensionConfig, workspacePath: string, branch: string) {
+    constructor(context: vscode.ExtensionContext, configManager: ConfigManager, workspacePath: string, branch: string) {
         this.context = context
-        this.config = config
+        this.configManager = configManager
         this.workspacePath = workspacePath
         this.branch = branch
         this.codebaseId = null
@@ -62,12 +64,15 @@ export class WorkspaceSync {
     }
 
     async createCodebase(): Promise<string> {
-        const url = new URL(`/api/projects/${this.config.projectId}/codebases`, this.config.host)
+        const url = new URL(
+            `/api/projects/${this.configManager.currentState.apiConfiguration.posthogProjectId}/codebases`,
+            this.configManager.currentState.apiConfiguration.posthogHost
+        )
         const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${this.config.apiKey}`,
+                Authorization: `Bearer ${this.configManager.currentState.apiConfiguration.posthogApiKey}`,
             },
         })
         const data = (await response.json()) as Codebase
@@ -76,14 +81,14 @@ export class WorkspaceSync {
 
     async checkSyncedCodebase(treeNodes: TreeNode[]) {
         const url = new URL(
-            `/api/projects/${this.config.projectId}/codebases/${this.codebaseId}/sync`,
-            this.config.host
+            `/api/projects/${this.configManager.currentState.apiConfiguration.posthogProjectId}/codebases/${this.codebaseId}/sync`,
+            this.configManager.currentState.apiConfiguration.posthogHost
         )
         const response = await fetch(url, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${this.config.apiKey}`,
+                Authorization: `Bearer ${this.configManager.currentState.apiConfiguration.posthogApiKey}`,
             },
             body: JSON.stringify({
                 tree: treeNodes,
@@ -96,15 +101,15 @@ export class WorkspaceSync {
 
     async uploadArtifact(file: UploadArtifactBody) {
         const url = new URL(
-            `/api/projects/${this.config.projectId}/codebases/${this.codebaseId}/upload_artifact`,
-            this.config.host
+            `/api/projects/${this.configManager.currentState.apiConfiguration.posthogProjectId}/codebases/${this.codebaseId}/upload_artifact`,
+            this.configManager.currentState.apiConfiguration.posthogHost
         )
 
         const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${this.config.apiKey}`,
+                Authorization: `Bearer ${this.configManager.currentState.apiConfiguration.posthogApiKey}`,
             },
             body: JSON.stringify(file),
         })

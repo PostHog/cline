@@ -1,9 +1,3 @@
-export interface ExtensionConfig {
-    projectId: string
-    host: string
-    apiKey: string
-}
-
 export type TreeNodeType = 'file' | 'dir'
 
 export interface TreeNode {

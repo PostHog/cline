@@ -2,12 +2,13 @@ import { expect } from 'chai'
 import { restore, SinonFakeTimers, SinonStub, stub, useFakeTimers } from 'sinon'
 import * as vscode from 'vscode'
 
+import { ConfigManager } from '~/shared/conf'
+
 import { API as GitExtensionAPI } from '../../../api/extensions/git'
 import { resetExtensionState } from '../../../test/utils'
 import { PathObfuscator } from '../../encryption'
 import { MerkleTreeNode } from '../merkle-tree-node'
 import { CodebaseIndexer } from '../sync'
-import { ExtensionConfig } from '../types'
 import { WorkspaceSync } from '../workspace-sync'
 
 describe('CodebaseIndexer Integration', () => {
@@ -25,12 +26,6 @@ describe('CodebaseIndexer Integration', () => {
     let onDidSaveStub: SinonStub
     let onDidCreateFilesStub: SinonStub
     let onDidDeleteFilesStub: SinonStub
-
-    const testConfig: ExtensionConfig = {
-        projectId: '123',
-        host: 'https://test.host',
-        apiKey: 'test-api-key',
-    }
 
     const mockFile1: Partial<MerkleTreeNode> = {
         hash: 'hash1',
@@ -124,8 +119,10 @@ describe('CodebaseIndexer Integration', () => {
             return await task(progress, undefined as any)
         })
 
+        const configManager = stub(ConfigManager.prototype)
+
         // Create the CodebaseIndexer instance
-        codebaseIndexer = new CodebaseIndexer(extensionContext, testConfig, pathObfuscator)
+        codebaseIndexer = new CodebaseIndexer(extensionContext, configManager, pathObfuscator)
 
         // Mock the getGitExtension method
         getGitExtensionStub = stub(codebaseIndexer as any, 'getGitExtension').resolves(mockGitApi)

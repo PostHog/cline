@@ -2,8 +2,10 @@ import { expect } from 'chai'
 import { restore, SinonStub, stub } from 'sinon'
 import * as vscode from 'vscode'
 
+import { ConfigManager } from '~/shared/conf'
+
 import { resetExtensionState } from '../../../test/utils'
-import { CodebaseSyncStatus, ExtensionConfig, SyncStatus, TreeNode } from '../types'
+import { CodebaseSyncStatus, SyncStatus, TreeNode } from '../types'
 import { MerkleTreeWalker } from '../walker'
 import { WorkspaceSync } from '../workspace-sync'
 
@@ -11,12 +13,6 @@ describe('WorkspaceSync', () => {
     let extensionContext: vscode.ExtensionContext
     let workspaceSync: WorkspaceSync
     let createCodebaseStub: SinonStub
-
-    const testConfig: ExtensionConfig = {
-        projectId: '123',
-        host: 'https://test.host',
-        apiKey: 'test-api-key',
-    }
 
     const testWorkspacePath = '/test/workspace/path'
     const testBranch = 'main'
@@ -30,7 +26,8 @@ describe('WorkspaceSync', () => {
     })
 
     beforeEach(() => {
-        workspaceSync = new WorkspaceSync(extensionContext, testConfig, testWorkspacePath, testBranch)
+        const configManager = stub(ConfigManager.prototype)
+        workspaceSync = new WorkspaceSync(extensionContext, configManager, testWorkspacePath, testBranch)
         createCodebaseStub = stub(workspaceSync, 'createCodebase').resolves(testCodebaseId)
     })
 
