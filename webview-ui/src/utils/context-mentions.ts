@@ -1,6 +1,6 @@
 import { Fzf } from 'fzf'
 
-import { mentionRegex } from '~//shared/context-mentions'
+import { mentionRegex } from '~/shared/context-mentions'
 
 export function insertMention(
     text: string,

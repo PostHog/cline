@@ -2,8 +2,9 @@ import React, { memo, useEffect } from 'react'
 import { useRemark } from 'react-remark'
 import rehypeHighlight, { Options } from 'rehype-highlight'
 import styled from 'styled-components'
-import { visit } from 'unist-util-visit'
 import { useExtensionState } from 'ui/context/ExtensionStateContext'
+import { visit } from 'unist-util-visit'
+
 import { CODE_BLOCK_BG_COLOR } from './CodeBlock'
 import MermaidBlock from './MermaidBlock'
 
@@ -25,13 +26,17 @@ const remarkUrlToLink = () => {
         visit(tree, 'text', (node: any, index, parent) => {
             const urlRegex = /https?:\/\/[^\s<>)"]+/g
             const matches = node.value.match(urlRegex)
-            if (!matches) return
+            if (!matches) {
+                return
+            }
 
             const parts = node.value.split(urlRegex)
             const children: any[] = []
 
             parts.forEach((part: string, i: number) => {
-                if (part) children.push({ type: 'text', value: part })
+                if (part) {
+                    children.push({ type: 'text', value: part })
+                }
                 if (matches[i]) {
                     children.push({
                         type: 'link',
@@ -59,22 +64,32 @@ const remarkPreventBoldFilenames = () => {
     return (tree: any) => {
         visit(tree, 'strong', (node: any, index: number | undefined, parent: any) => {
             // Only process if there's a next node (potential file extension)
-            if (!parent || typeof index === 'undefined' || index === parent.children.length - 1) return
+            if (!parent || typeof index === 'undefined' || index === parent.children.length - 1) {
+                return
+            }
 
             const nextNode = parent.children[index + 1]
 
             // Check if next node is text and starts with . followed by extension
-            if (nextNode.type !== 'text' || !nextNode.value.match(/^\.[a-zA-Z0-9]+/)) return
+            if (nextNode.type !== 'text' || !nextNode.value.match(/^\.[a-zA-Z0-9]+/)) {
+                return
+            }
 
             // If the strong node has multiple children, something weird is happening
-            if (node.children?.length !== 1) return
+            if (node.children?.length !== 1) {
+                return
+            }
 
             // Get the text content from inside the strong node
             const strongContent = node.children?.[0]?.value
-            if (!strongContent || typeof strongContent !== 'string') return
+            if (!strongContent || typeof strongContent !== 'string') {
+                return
+            }
 
             // Validate that the strong content is a valid filename
-            if (!strongContent.match(/^[a-zA-Z0-9_-]+$/)) return
+            if (!strongContent.match(/^[a-zA-Z0-9_-]+$/)) {
+                return
+            }
 
             // Combine into a single text node
             const newNode = {

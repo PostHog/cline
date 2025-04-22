@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useEvent } from 'react-use'
-import { ExtensionMessage } from '~//shared/ExtensionMessage'
+
+import { ExtensionMessage } from '~/shared/ExtensionMessage'
+
+import { AnalysisView } from './components/analysis/AnalysisView'
 import ChatView from './components/chat/ChatView'
 import HistoryView from './components/history/HistoryView'
+import McpView from './components/mcp/McpView'
 import SettingsView from './components/settings/SettingsView'
 import { ExtensionStateContextProvider, useExtensionState } from './context/ExtensionStateContext'
-import McpView from './components/mcp/McpView'
-import { AnalysisView } from './components/analysis/AnalysisView'
 
 const AppContent = () => {
     const { didHydrateState } = useExtensionState()

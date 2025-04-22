@@ -1,15 +1,15 @@
 import {
     VSCodeButton,
-    VSCodeTextField,
-    VSCodeRadioGroup,
-    VSCodeRadio,
     VSCodeDropdown,
     VSCodeOption,
+    VSCodeRadio,
+    VSCodeRadioGroup,
+    VSCodeTextField,
 } from '@vscode/webview-ui-toolkit/react'
 import { memo, useEffect, useState } from 'react'
 import { useExtensionState } from 'ui/context/ExtensionStateContext'
+
 import VSCodeButtonLink from '../common/VSCodeButtonLink'
-import { vscode } from 'ui/utils/vscode'
 
 const PostHogConfigOptions = () => {
     const { apiConfiguration, setApiConfiguration, posthogProjects } = useExtensionState()

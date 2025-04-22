@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react'
-import { vscode } from 'ui/utils/vscode'
 import DOMPurify from 'dompurify'
-import { getSafeHostname, normalizeRelativeUrl } from './McpRichUtil'
+import React from 'react'
+import { vscode } from 'ui/utils/vscode'
+
 import ChatErrorBoundary from '../chat/ChatErrorBoundary'
+import { getSafeHostname, normalizeRelativeUrl } from './McpRichUtil'
 
 interface OpenGraphData {
     title?: string
