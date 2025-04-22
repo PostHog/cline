@@ -1,4 +1,4 @@
-import { getShell } from '../../utils/shell'
+import { ShellDetector } from '../../utils/shell'
 import os from 'os'
 import osName from 'os-name'
 import { McpHub } from '../../services/mcp/McpHub'
@@ -851,7 +851,7 @@ ${
 SYSTEM INFORMATION
 
 Operating System: ${osName()}
-Default Shell: ${getShell()}
+Default Shell: ${new ShellDetector().getShell()}
 Home Directory: ${os.homedir().toPosix()}
 Current Working Directory: ${cwd.toPosix()}
 
