@@ -26,6 +26,7 @@ import { ApiConfiguration } from '~/shared/api'
 import { findLast } from '~/shared/array'
 import { ChatContent } from '~/shared/ChatContent'
 import { ChatSettings } from '~/shared/ChatSettings'
+import { ConfigManager } from '~/shared/conf'
 import { ExtensionMessage, ExtensionState, Invoke, Platform } from '~/shared/ExtensionMessage'
 import { HistoryItem } from '~/shared/HistoryItem'
 import { TelemetrySetting } from '~/shared/TelemetrySetting'
@@ -38,7 +39,6 @@ import { openMention } from '../mentions'
 import { PostHog } from '../PostHog'
 import { getNonce } from './getNonce'
 import { getUri } from './getUri'
-import { ConfigManager } from '../../shared/conf'
 
 /*
 https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts

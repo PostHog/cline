@@ -23,8 +23,8 @@ import { DIFF_VIEW_URI_SCHEME } from './integrations/editor/DiffViewProvider'
 import { Logger } from './services/logging/Logger'
 import { telemetryService } from './services/telemetry/TelemetryService'
 import { codestralDefaultModelId } from './shared/api'
-import { debounce } from './utils/debounce'
 import { ConfigManager } from './shared/conf'
+import { debounce } from './utils/debounce'
 
 /*
 Built using https://github.com/microsoft/vscode-webview-ui-toolkit

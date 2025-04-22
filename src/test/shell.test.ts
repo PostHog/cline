@@ -1,8 +1,9 @@
 import { expect } from 'chai'
-import * as vscode from 'vscode'
+import { afterEach, beforeEach, describe, it } from 'mocha'
 import type { UserInfo } from 'os'
 import sinon from 'sinon'
-import { afterEach, beforeEach, describe, it } from 'mocha'
+import * as vscode from 'vscode'
+
 import { ShellDetector } from '~/utils/shell'
 
 describe('Shell Detection Tests', () => {
