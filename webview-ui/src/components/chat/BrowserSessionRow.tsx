@@ -3,10 +3,12 @@ import deepEqual from 'fast-deep-equal'
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useSize } from 'react-use'
 import styled from 'styled-components'
-import { BROWSER_VIEWPORT_PRESETS } from '~//shared/BrowserSettings'
-import { BrowserAction, BrowserActionResult, PostHogMessage, PostHogSayBrowserAction } from '~//shared/ExtensionMessage'
 import { useExtensionState } from 'ui/context/ExtensionStateContext'
 import { vscode } from 'ui/utils/vscode'
+
+import { BROWSER_VIEWPORT_PRESETS } from '~/shared/BrowserSettings'
+import { BrowserAction, BrowserActionResult, PostHogMessage, PostHogSayBrowserAction } from '~/shared/ExtensionMessage'
+
 import { BrowserSettingsMenu } from '../browser/BrowserSettingsMenu'
 import { CheckpointControls } from '../common/CheckpointControls'
 import CodeBlock, { CODE_BLOCK_BG_COLOR } from '../common/CodeBlock'
@@ -225,7 +227,9 @@ const BrowserSessionRow = memo((props: BrowserSessionRowProps) => {
 
     // Track latest click coordinate
     const latestClickPosition = useMemo(() => {
-        if (!isBrowsing) return undefined
+        if (!isBrowsing) {
+            return undefined
+        }
 
         // Look through current page's next actions for the latest browser_action
         const actions = currentPage?.nextAction?.messages || []

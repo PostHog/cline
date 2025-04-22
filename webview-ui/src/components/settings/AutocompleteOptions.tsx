@@ -1,6 +1,5 @@
-import { VSCodeCheckbox, VSCodeTextField } from '@vscode/webview-ui-toolkit/react'
+import { VSCodeCheckbox } from '@vscode/webview-ui-toolkit/react'
 import { memo } from 'react'
-import { ApiConfiguration } from '~//shared/api'
 import { useExtensionState } from 'ui/context/ExtensionStateContext'
 
 declare module 'vscode' {

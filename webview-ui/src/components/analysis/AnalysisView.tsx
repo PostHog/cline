@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react'
-import { vscode } from 'ui/utils/vscode'
-import { PostHogUsage } from '~//analysis/codeAnalyzer'
-import { useExtensionState } from 'ui/context/ExtensionStateContext'
-import { VSCodeBadge, VSCodeButton } from '@vscode/webview-ui-toolkit/react'
 import './AnalysisView.scss'
+
+import { VSCodeBadge, VSCodeButton } from '@vscode/webview-ui-toolkit/react'
+import React, { useEffect, useState } from 'react'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
+import { vscode } from 'ui/utils/vscode'
+
+import { PostHogUsage } from '~/analysis/codeAnalyzer'
 
 interface FileGroup {
     filePath: string

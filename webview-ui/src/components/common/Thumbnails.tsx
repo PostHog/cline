@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect, memo } from 'react'
+import React, { memo, useLayoutEffect, useRef, useState } from 'react'
 import { useWindowSize } from 'react-use'
 import { vscode } from 'ui/utils/vscode'
 

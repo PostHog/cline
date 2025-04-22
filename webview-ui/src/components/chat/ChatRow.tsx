@@ -1,34 +1,36 @@
-import { VSCodeBadge, VSCodeProgressRing } from '@vscode/webview-ui-toolkit/react'
+import { VSCodeProgressRing } from '@vscode/webview-ui-toolkit/react'
 import deepEqual from 'fast-deep-equal'
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useEvent, useSize } from 'react-use'
 import styled from 'styled-components'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
+import { findMatchingResourceOrTemplate } from 'ui/utils/mcp'
+import { vscode } from 'ui/utils/vscode'
+
+import { COMMAND_OUTPUT_STRING, COMMAND_REQ_APP_STRING } from '~/shared/combineCommandSequences'
 import {
+    COMPLETION_RESULT_CHANGES_FLAG,
+    ExtensionMessage,
     PostHogApiReqInfo,
     PostHogAskQuestion,
     PostHogAskUseMcpServer,
     PostHogMessage,
     PostHogPlanModeResponse,
     PostHogSayTool,
-    COMPLETION_RESULT_CHANGES_FLAG,
-    ExtensionMessage,
-} from '~//shared/ExtensionMessage'
-import { COMMAND_OUTPUT_STRING, COMMAND_REQ_APP_STRING } from '~//shared/combineCommandSequences'
-import { useExtensionState } from 'ui/context/ExtensionStateContext'
-import { findMatchingResourceOrTemplate } from 'ui/utils/mcp'
-import { vscode } from 'ui/utils/vscode'
+} from '~/shared/ExtensionMessage'
+
 import { CheckmarkControl } from '../common/CheckmarkControl'
 import { CheckpointControls, CheckpointOverlay } from '../common/CheckpointControls'
 import CodeAccordian, { cleanPathPrefix } from '../common/CodeAccordian'
 import CodeBlock, { CODE_BLOCK_BG_COLOR } from '../common/CodeBlock'
 import MarkdownBlock from '../common/MarkdownBlock'
+import SuccessButton from '../common/SuccessButton'
 import Thumbnails from '../common/Thumbnails'
 import McpResourceRow from '../mcp/McpResourceRow'
-import McpToolRow from '../mcp/McpToolRow'
 import McpResponseDisplay from '../mcp/McpResponseDisplay'
+import McpToolRow from '../mcp/McpToolRow'
 import { OptionsButtons } from './OptionsButtons'
 import { highlightMentions } from './TaskHeader'
-import SuccessButton from '../common/SuccessButton'
 
 const ChatRowContainer = styled.div`
     padding: 10px 6px 10px 15px;
