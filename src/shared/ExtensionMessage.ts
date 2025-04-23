@@ -169,7 +169,7 @@ export interface PostHogSayTool {
     regex?: string
     filePattern?: string
     url?: string
-    fileNames?: string[]
+    paths?: string[]
     fileName?: string
     events?: string[]
     error?: boolean

@@ -1,4 +1,4 @@
-import { VSCodeBadge, VSCodeProgressRing } from '@vscode/webview-ui-toolkit/react'
+import { VSCodeProgressRing } from '@vscode/webview-ui-toolkit/react'
 import deepEqual from 'fast-deep-equal'
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useEvent, useSize } from 'react-use'
@@ -29,7 +29,7 @@ import McpResponseDisplay from '../mcp/McpResponseDisplay'
 import { OptionsButtons } from './OptionsButtons'
 import { highlightMentions } from './TaskHeader'
 import SuccessButton from '../common/SuccessButton'
-import ChatRowList from './rows/ChatRowList'
+import { CollapsibleEventList, CollapsibleFileList } from './rows/ChatRowList'
 
 const ChatRowContainer = styled.div`
     padding: 10px 6px 10px 15px;
@@ -552,12 +552,13 @@ export const ChatRowContent = ({
                     </>
                 )
             case 'addCaptureCalls':
-                const items = tool.events ?? tool.fileNames ?? []
+                const events = tool.events ?? []
+                const paths = tool.paths ?? []
                 const isError = tool.error ?? false
                 return (
                     <>
                         <div style={{ ...headerStyle }}>
-                            {toolIcon({ name: 'add', isError })}
+                            {message.type === 'ask' && toolIcon({ name: 'add', isError })}
                             <span
                                 style={{
                                     fontWeight: 600,
@@ -567,13 +568,14 @@ export const ChatRowContent = ({
                                 }}
                             >
                                 {message.type === 'ask'
-                                    ? `Max wants to add tracking to ${items.length} files`
+                                    ? `Max wants to add tracking to ${paths.length} files`
                                     : isError
                                       ? `Failed to add tracking to ${tool.fileName}`
                                       : `Added ${tool.events!.length} events to ${tool.fileName}`}
                             </span>
                         </div>
-                        {items.length > 0 && <ChatRowList items={items} />}
+                        {paths.length > 0 && <CollapsibleFileList title="Files" paths={paths} />}
+                        {events.length > 0 && <CollapsibleEventList title="Events" events={events} />}
                     </>
                 )
             case 'createFeatureFlag':

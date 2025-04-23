@@ -2966,11 +2966,9 @@ export class PostHog {
 
                             const shouldAutoApprove = this.shouldAutoApproveTool('write_to_file')
 
-                            const fileNames = paths.map((path) => path.split('/').pop() || path)
-
                             const sayMessage = JSON.stringify({
                                 tool: 'addCaptureCalls',
-                                fileNames,
+                                paths,
                             } satisfies PostHogSayTool)
 
                             if (shouldAutoApprove) {
