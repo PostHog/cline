@@ -558,7 +558,7 @@ export const ChatRowContent = ({
                 return (
                     <>
                         <div style={{ ...headerStyle }}>
-                            {message.type === 'ask' && toolIcon({ name: 'add', isError })}
+                            {message.type === 'ask' && toolIcon({ name: 'code', isError })}
                             <span
                                 style={{
                                     fontWeight: 600,
@@ -571,7 +571,7 @@ export const ChatRowContent = ({
                                     ? `Max wants to add tracking to ${paths.length} files`
                                     : isError
                                       ? `Failed to add tracking to ${tool.fileName}`
-                                      : `Added ${tool.events!.length} events to ${tool.fileName}`}
+                                      : `Added ${tool.events!.length} event${tool.events!.length === 1 ? '' : 's'} to ${tool.fileName}`}
                             </span>
                         </div>
                         {paths.length > 0 && <CollapsibleFileList title="Files" paths={paths} />}

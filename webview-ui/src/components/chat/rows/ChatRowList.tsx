@@ -1,4 +1,5 @@
 import { useState, ReactNode } from 'react'
+import { vscode } from '../../../utils/vscode'
 
 export type ChatRowListProps = {
     items: ReactNode[]
@@ -120,6 +121,13 @@ export const CollapsibleFileList = ({ title, paths, defaultOpen = false }: Colla
                     borderRadius: '4px',
                     fontSize: '12px',
                     fontFamily: 'var(--vscode-editor-font-family)',
+                    cursor: 'pointer',
+                }}
+                onClick={() => {
+                    vscode.postMessage({
+                        type: 'openFile',
+                        text: path,
+                    })
                 }}
             >
                 <strong>{filename}</strong>
