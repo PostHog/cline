@@ -66,7 +66,7 @@ Return exactly:
 Event 1, Event 2, …
 </added_capture_events>
 
-No explanations. No extra commentary. No markdown other than the tags above.
+No explanations. No extra commentary. No markdown other than the tags above. If you don't have any events to add, return an empty string for the added_capture_events tag.
 
 ⸻
 
