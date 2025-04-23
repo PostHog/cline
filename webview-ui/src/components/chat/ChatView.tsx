@@ -43,6 +43,7 @@ const ChatView = ({ isHidden, showHistoryView }: ChatViewProps) => {
         apiConfiguration,
         telemetrySetting,
         showWelcome,
+        chatSettings,
     } = useExtensionState()
 
     //const task = messages.length > 0 ? (messages[0].say === "task" ? messages[0] : undefined) : undefined) : undefined
@@ -801,7 +802,12 @@ const ChatView = ({ isHidden, showHistoryView }: ChatViewProps) => {
                         {!showWelcome && (
                             <>
                                 {taskHistory.length > 0 && <HistoryPreview showHistoryView={showHistoryView} />}
-                                <SuggestedTasks setInputValue={setInputValue} handleSendMessage={handleSendMessage} />
+                                {chatSettings?.mode === 'act' && (
+                                    <SuggestedTasks
+                                        setInputValue={setInputValue}
+                                        handleSendMessage={handleSendMessage}
+                                    />
+                                )}
                             </>
                         )}
                         {showWelcome && (

@@ -21,7 +21,16 @@ export async function openImage(dataUri: string) {
     }
 }
 
-export async function openFile(absolutePath: string) {
+export async function openFile(filePath: string) {
+    let absolutePath = filePath
+    if (!path.isAbsolute(filePath)) {
+        const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+        if (!root) {
+            throw new Error('No workspace folder found')
+        }
+        absolutePath = path.join(root, filePath)
+    }
+
     try {
         const uri = vscode.Uri.file(absolutePath)
 

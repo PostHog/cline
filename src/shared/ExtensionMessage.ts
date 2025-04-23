@@ -163,12 +163,17 @@ export interface PostHogSayTool {
         | 'createFeatureFlag'
         | 'updateFeatureFlag'
         | 'listFeatureFlags'
+        | 'addCaptureCalls'
     path?: string
     diff?: string
     content?: string
     regex?: string
     filePattern?: string
     url?: string
+    paths?: string[]
+    fileName?: string
+    events?: string[]
+    error?: boolean
 }
 
 // must keep in sync with system prompt
