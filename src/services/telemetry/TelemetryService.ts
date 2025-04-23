@@ -1,5 +1,6 @@
 import { PostHog as PostHogNode } from 'posthog-node'
 import * as vscode from 'vscode'
+
 import { version as extensionVersion } from '../../../package.json'
 
 /**
@@ -36,6 +37,8 @@ class PostHogTelemetryClient {
             AUTOCOMPLETE_ENABLED: 'task.autocomplete_enabled',
             // Tracks when autocomplete is used
             AUTOCOMPLETE: 'task.autocomplete',
+            // Tracks indexing timings
+            INDEXING_TIMINGS: 'task.indexing_timings',
         },
         // UI interaction events for tracking user engagement
         UI: {
@@ -417,6 +420,13 @@ class PostHogTelemetryClient {
     public captureAutocomplete(properties: Record<string, any>) {
         this.capture({
             event: PostHogTelemetryClient.EVENTS.TASK.AUTOCOMPLETE,
+            properties,
+        })
+    }
+
+    public captureIndexingTimings(properties: Record<string, number>) {
+        this.capture({
+            event: PostHogTelemetryClient.EVENTS.TASK.INDEXING_TIMINGS,
             properties,
         })
     }

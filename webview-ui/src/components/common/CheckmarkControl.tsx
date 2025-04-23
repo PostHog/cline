@@ -1,13 +1,14 @@
-import { useCallback, useRef, useState, useEffect } from 'react'
-import { useClickAway, useEvent } from 'react-use'
-import styled from 'styled-components'
-import { ExtensionMessage } from '../../../../src/shared/ExtensionMessage'
-import { vscode } from '../../utils/vscode'
-import { CODE_BLOCK_BG_COLOR } from './CodeBlock'
-import { PostHogCheckpointRestore } from '../../../../src/shared/WebviewMessage'
+import { flip, offset, shift, useFloating } from '@floating-ui/react'
 import { VSCodeButton } from '@vscode/webview-ui-toolkit/react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useFloating, offset, flip, shift } from '@floating-ui/react'
+import { useEvent } from 'react-use'
+import styled from 'styled-components'
+import { vscode } from 'ui/utils/vscode'
+
+import { ExtensionMessage } from '~/shared/ExtensionMessage'
+
+import { CODE_BLOCK_BG_COLOR } from './CodeBlock'
 
 interface CheckmarkControlProps {
     messageTs?: number

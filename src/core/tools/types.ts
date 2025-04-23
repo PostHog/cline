@@ -1,7 +1,7 @@
-import type { CreateFeatureFlagTool } from './posthog/feature-flags/CreateFeatureFlagTool'
-import type { UpdateFeatureFlagTool } from './posthog/feature-flags/UpdateFeatureFlagTool'
-import type { ListFeatureFlagsTool } from './posthog/feature-flags/ListFeatureFlagsTool'
 import type { BaseTool } from './base/BaseTool'
+import type { CreateFeatureFlagTool } from './posthog/feature-flags/CreateFeatureFlagTool'
+import type { ListFeatureFlagsTool } from './posthog/feature-flags/ListFeatureFlagsTool'
+import type { UpdateFeatureFlagTool } from './posthog/feature-flags/UpdateFeatureFlagTool'
 
 export type ToolInput<T> = T
 

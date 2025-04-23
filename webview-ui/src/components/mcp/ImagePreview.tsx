@@ -1,8 +1,9 @@
-import React, { useEffect, useRef } from 'react'
-import { vscode } from '../../utils/vscode'
 import DOMPurify from 'dompurify'
-import { getSafeHostname, formatUrlForOpening, checkIfImageUrl } from './McpRichUtil'
+import React from 'react'
+import { vscode } from 'ui/utils/vscode'
+
 import ChatErrorBoundary from '../chat/ChatErrorBoundary'
+import { checkIfImageUrl, formatUrlForOpening, getSafeHostname } from './McpRichUtil'
 
 interface ImagePreviewProps {
     url: string

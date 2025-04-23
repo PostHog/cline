@@ -1,4 +1,5 @@
-import { useState, ReactNode } from 'react'
+import { ReactNode, useState } from 'react'
+
 import { vscode } from '../../../utils/vscode'
 
 export type ChatRowListProps = {

@@ -1,20 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react'
-import LinkPreview from './LinkPreview'
-import ImagePreview from './ImagePreview'
-import { vscode } from '../../utils/vscode'
-import DOMPurify from 'dompurify'
+import React, { useCallback, useEffect, useState } from 'react'
 import styled from 'styled-components'
-import { CODE_BLOCK_BG_COLOR } from '../common/CodeBlock'
+
 import ChatErrorBoundary from '../chat/ChatErrorBoundary'
-import {
-    safeCreateUrl,
-    isUrl,
-    getSafeHostname,
-    isLocalhostUrl,
-    normalizeRelativeUrl,
-    formatUrlForOpening,
-    checkIfImageUrl,
-} from './McpRichUtil'
+import { CODE_BLOCK_BG_COLOR } from '../common/CodeBlock'
+import ImagePreview from './ImagePreview'
+import LinkPreview from './LinkPreview'
+import { checkIfImageUrl, formatUrlForOpening, isLocalhostUrl, isUrl } from './McpRichUtil'
 
 // Maximum number of URLs to process in total, per response
 export const MAX_URLS = 50
@@ -218,7 +209,9 @@ const McpResponseDisplay: React.FC<McpResponseDisplayProps> = ({ responseText })
 
                     for (let i = 0; i < matches.length; i++) {
                         // Skip already processed URLs (from extension check)
-                        if (matches[i].isProcessed) continue
+                        if (matches[i].isProcessed) {
+                            continue
+                        }
 
                         // Check if processing has been canceled (switched to plain mode)
                         if (processingCanceled) {
@@ -234,7 +227,9 @@ const McpResponseDisplay: React.FC<McpResponseDisplayProps> = ({ responseText })
                             const isImage = await checkIfImageUrl(match.url)
 
                             // Skip if processing has been canceled
-                            if (processingCanceled) return
+                            if (processingCanceled) {
+                                return
+                            }
 
                             // Update the match in place
                             match.isImage = isImage

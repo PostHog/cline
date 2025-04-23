@@ -1,7 +1,9 @@
-import * as vscode from 'vscode'
-import * as URI from 'uri-js'
-import { RangeInFile, Location, Range } from '../autocomplete/types'
 import { machineIdSync } from 'node-machine-id'
+import * as URI from 'uri-js'
+import * as vscode from 'vscode'
+
+import { Location, Range, RangeInFile } from '~/autocomplete/types'
+import { getGitExtensionApi } from '~/shared/git'
 
 const MAX_BYTES = 100000
 
@@ -135,29 +137,17 @@ function splitDiff(diffString: string): string[] {
     return diffs
 }
 
-function getRepositories() {
-    const extension = vscode.extensions.getExtension('vscode.git')
-    if (
-        typeof extension === 'undefined' ||
-        !extension.isActive ||
-        typeof vscode.workspace.workspaceFolders === 'undefined'
-    ) {
+export async function getRepositories() {
+    const extension = await getGitExtensionApi()
+    if (!extension) {
         return undefined
     }
-
-    try {
-        const git = extension.exports.getAPI(1)
-        return git.repositories
-    } catch (e) {
-        console.warn('Git not found: ', e)
-        return undefined
-    }
+    return extension.repositories
 }
 
 export async function getDiff(includeUnstaged: boolean): Promise<string[]> {
     const diffs: string[] = []
-
-    const repos = getRepositories()
+    const repos = await getRepositories()
 
     try {
         if (repos) {
@@ -181,18 +171,13 @@ export async function getDiff(includeUnstaged: boolean): Promise<string[]> {
 
 export async function getRepo(dir: string) {
     // Use the native git extension to get the branch name
-    const extension = vscode.extensions.getExtension('vscode.git')
-    if (
-        typeof extension === 'undefined' ||
-        !extension.isActive ||
-        typeof vscode.workspace.workspaceFolders === 'undefined'
-    ) {
+    const extension = await getGitExtensionApi()
+    if (!extension) {
         return undefined
     }
 
     try {
-        const git = extension.exports.getAPI(1)
-        return git.getRepository(vscode.Uri.parse(dir)) ?? undefined
+        return extension.getRepository(vscode.Uri.parse(dir)) ?? undefined
     } catch (e) {
         console.warn('Git not found: ', e)
         return undefined

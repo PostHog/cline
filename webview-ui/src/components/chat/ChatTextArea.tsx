@@ -3,25 +3,27 @@ import React, { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, us
 import DynamicTextArea from 'react-textarea-autosize'
 import { useClickAway, useEvent, useWindowSize } from 'react-use'
 import styled from 'styled-components'
-import { mentionRegex, mentionRegexGlobal } from '../../../../src/shared/context-mentions'
-import { ExtensionMessage } from '../../../../src/shared/ExtensionMessage'
-import { useExtensionState } from '../../context/ExtensionStateContext'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
 import {
     ContextMenuOptionType,
     getContextMenuOptions,
     insertMention,
     removeMention,
     shouldShowContextMenu,
-} from '../../utils/context-mentions'
-import { useMetaKeyDetection, useShortcut } from '../../utils/hooks'
-import { vscode } from '../../utils/vscode'
+} from 'ui/utils/context-mentions'
+import { useMetaKeyDetection, useShortcut } from 'ui/utils/hooks'
+import { vscode } from 'ui/utils/vscode'
+
+import { ChatSettings } from '~/shared/ChatSettings'
+import { mentionRegex, mentionRegexGlobal } from '~/shared/context-mentions'
+import { ExtensionMessage } from '~/shared/ExtensionMessage'
+
 import { CODE_BLOCK_BG_COLOR } from '../common/CodeBlock'
 import Thumbnails from '../common/Thumbnails'
 import Tooltip from '../common/Tooltip'
 import ApiOptions, { normalizeApiConfiguration } from '../settings/ApiOptions'
 import { MAX_IMAGES_PER_MESSAGE } from './ChatView'
 import ContextMenu from './ContextMenu'
-import { ChatSettings } from '../../../../src/shared/ChatSettings'
 
 interface ChatTextAreaProps {
     inputValue: string
@@ -380,7 +382,9 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
                             const options = getContextMenuOptions(searchQuery, selectedType, queryItems)
                             const optionsLength = options.length
 
-                            if (optionsLength === 0) return prevIndex
+                            if (optionsLength === 0) {
+                                return prevIndex
+                            }
 
                             // Find selectable options (non-URL types)
                             const selectableOptions = options.filter(
@@ -389,7 +393,9 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
                                     option.type !== ContextMenuOptionType.NoResults
                             )
 
-                            if (selectableOptions.length === 0) return -1 // No selectable options
+                            if (selectableOptions.length === 0) {
+                                return -1
+                            } // No selectable options
 
                             // Find the index of the next selectable option
                             const currentSelectableIndex = selectableOptions.findIndex(
@@ -612,7 +618,9 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
         }, [])
 
         const updateHighlights = useCallback(() => {
-            if (!textAreaRef.current || !highlightLayerRef.current) return
+            if (!textAreaRef.current || !highlightLayerRef.current) {
+                return
+            }
 
             const text = textAreaRef.current.value
 
@@ -665,7 +673,9 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
         useShortcut('Meta+Shift+a', onModeToggle, { disableTextInputs: false }) // important that we don't disable the text input here
 
         const handleContextButtonClick = useCallback(() => {
-            if (textAreaDisabled) return
+            if (textAreaDisabled) {
+                return
+            }
 
             // Focus the textarea first
             textAreaRef.current?.focus()
@@ -722,7 +732,9 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
         const modelDisplayName = useMemo(() => {
             const { selectedModelId } = normalizeApiConfiguration(chatSettings?.[chatSettings?.mode])
             const unknownModel = 'unknown'
-            if (!chatSettings) return unknownModel
+            if (!chatSettings) {
+                return unknownModel
+            }
             return selectedModelId
         }, [chatSettings])
 
@@ -787,7 +799,9 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
                 return type === 'image' && acceptedTypes.includes(subtype)
             })
 
-            if (shouldDisableImages || imageFiles.length === 0) return
+            if (shouldDisableImages || imageFiles.length === 0) {
+                return
+            }
 
             const imageDataArray = await readImageFiles(imageFiles)
             const dataUrls = imageDataArray.filter((dataUrl): dataUrl is string => dataUrl !== null)

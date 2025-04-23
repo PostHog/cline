@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
 import mermaid from 'mermaid'
-import { useDebounceEffect } from '../../utils/useDebounceEffect'
+import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { vscode } from '../../utils/vscode'
+import { useDebounceEffect } from 'ui/utils/useDebounceEffect'
+import { vscode } from 'ui/utils/vscode'
 
 const MERMAID_THEME = {
     background: '#1e1e1e', // VS Code dark theme background
@@ -124,9 +124,13 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
      * Converts the <svg> to a PNG and sends it to the extension.
      */
     const handleClick = async () => {
-        if (!containerRef.current) return
+        if (!containerRef.current) {
+            return
+        }
         const svgEl = containerRef.current.querySelector('svg')
-        if (!svgEl) return
+        if (!svgEl) {
+            return
+        }
 
         try {
             const pngDataUrl = await svgToPng(svgEl)
@@ -184,7 +188,9 @@ async function svgToPng(svgEl: SVGElement): Promise<string> {
             canvas.height = scaledHeight
 
             const ctx = canvas.getContext('2d')
-            if (!ctx) return reject('Canvas context not available')
+            if (!ctx) {
+                return reject('Canvas context not available')
+            }
 
             // Fill background with Mermaid's dark theme background color
             ctx.fillStyle = MERMAID_THEME.background

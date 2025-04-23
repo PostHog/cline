@@ -1,8 +1,9 @@
 import { VSCodeButton } from '@vscode/webview-ui-toolkit/react'
 import React, { memo } from 'react'
-import { mentionRegexGlobal } from '../../../../src/shared/context-mentions'
-import { vscode } from '../../utils/vscode'
-import { PostHogMessage } from '../../../../src/shared/ExtensionMessage'
+import { vscode } from 'ui/utils/vscode'
+
+import { mentionRegexGlobal } from '~/shared/context-mentions'
+import { PostHogMessage } from '~/shared/ExtensionMessage'
 
 interface TaskHeaderProps {
     task: PostHogMessage
@@ -59,7 +60,9 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({ task, onClose }) => {
 }
 
 export const highlightMentions = (text?: string, withShadow = true) => {
-    if (!text) return text
+    if (!text) {
+        return text
+    }
     const parts = text.split(mentionRegexGlobal)
     return parts.map((part, index) => {
         if (index % 2 === 0) {

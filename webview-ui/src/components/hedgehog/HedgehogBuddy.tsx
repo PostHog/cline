@@ -3,6 +3,7 @@ import './HedgehogBuddy.scss'
 import clsx from 'clsx'
 import { ForwardedRef, useEffect, useRef, useState } from 'react'
 import React from 'react'
+import { range, sampleOne, shouldIgnoreInput } from 'ui/utils/utils'
 
 import {
     AccessoryInfo,
@@ -20,7 +21,6 @@ import {
     spriteUrl,
     standardAccessories,
 } from './sprites/sprites'
-import { range, sampleOne, shouldIgnoreInput } from '../../utils/utils'
 
 export const X_FRAMES = SPRITE_SHEET_WIDTH / SPRITE_SIZE
 export const FPS = 24

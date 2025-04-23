@@ -1,8 +1,7 @@
 import { VSCodeButton } from '@vscode/webview-ui-toolkit/react'
-import { useExtensionState } from '../../context/ExtensionStateContext'
-import { vscode } from '../../utils/vscode'
 import { memo } from 'react'
-import { formatLargeNumber } from '../../utils/format'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
+import { vscode } from 'ui/utils/vscode'
 
 type HistoryPreviewProps = {
     showHistoryView: () => void

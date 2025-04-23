@@ -1,31 +1,33 @@
-import { VSCodeButton, VSCodeLink } from '@vscode/webview-ui-toolkit/react'
+import { VSCodeButton } from '@vscode/webview-ui-toolkit/react'
 import debounce from 'debounce'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDeepCompareEffect, useEvent, useMount } from 'react-use'
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import styled from 'styled-components'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
+import { vscode } from 'ui/utils/vscode'
+
+import { findLast } from '~/shared/array'
+import { combineApiRequests } from '~/shared/combineApiRequests'
+import { combineCommandSequences } from '~/shared/combineCommandSequences'
 import {
+    ExtensionMessage,
     PostHogAsk,
     PostHogMessage,
     PostHogSayBrowserAction,
     PostHogSayTool,
-    ExtensionMessage,
-} from '../../../../src/shared/ExtensionMessage'
-import { findLast } from '../../../../src/shared/array'
-import { combineApiRequests } from '../../../../src/shared/combineApiRequests'
-import { combineCommandSequences } from '../../../../src/shared/combineCommandSequences'
-import { useExtensionState } from '../../context/ExtensionStateContext'
-import { vscode } from '../../utils/vscode'
+} from '~/shared/ExtensionMessage'
+
+import TelemetryBanner from '../common/TelemetryBanner'
 import HistoryPreview from '../history/HistoryPreview'
 import { normalizeApiConfiguration } from '../settings/ApiOptions'
+import PostHogConfigOptions from '../settings/PostHogConfigOptions'
 import BrowserSessionRow from './BrowserSessionRow'
 import ChatRow from './ChatRow'
 import ChatTextArea from './ChatTextArea'
-import TaskHeader from './TaskHeader'
-import TelemetryBanner from '../common/TelemetryBanner'
 import Intro from './Intro'
-import PostHogConfigOptions from '../settings/PostHogConfigOptions'
 import SuggestedTasks from './SuggestedTasks'
+import TaskHeader from './TaskHeader'
 
 interface ChatViewProps {
     isHidden: boolean

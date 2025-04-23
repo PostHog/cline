@@ -1,0 +1,1 @@
+export { CodebaseIndexer } from './sync'

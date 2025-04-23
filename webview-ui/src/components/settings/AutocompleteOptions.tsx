@@ -1,7 +1,6 @@
-import { VSCodeCheckbox, VSCodeTextField } from '@vscode/webview-ui-toolkit/react'
+import { VSCodeCheckbox } from '@vscode/webview-ui-toolkit/react'
 import { memo } from 'react'
-import { ApiConfiguration } from '../../../../src/shared/api'
-import { useExtensionState } from '../../context/ExtensionStateContext'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
 
 declare module 'vscode' {
     interface LanguageModelChatSelector {

@@ -2,7 +2,7 @@ import { expect } from "chai"
 import { describe, it, beforeEach, afterEach } from "mocha"
 import fs from "fs/promises"
 import { createTestEnvironment, createTestTracker } from "./Checkpoint-test-utils"
-import { HistoryItem } from "../../shared/HistoryItem"
+import { HistoryItem } from "~/shared/HistoryItem"
 import CheckpointTracker from "./CheckpointTracker"
 
 describe("Checkpoint Task Switching", () => {

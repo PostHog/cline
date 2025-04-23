@@ -1,20 +1,22 @@
 import {
     VSCodeButton,
+    VSCodeDropdown,
     VSCodeLink,
+    VSCodeOption,
     VSCodePanels,
     VSCodePanelTab,
     VSCodePanelView,
-    VSCodeDropdown,
-    VSCodeOption,
 } from '@vscode/webview-ui-toolkit/react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import styled from 'styled-components'
-import { DEFAULT_MCP_TIMEOUT_SECONDS, McpServer } from '../../../../src/shared/mcp'
-import { useExtensionState } from '../../context/ExtensionStateContext'
-import { vscode } from '../../utils/vscode'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
+import { vscode } from 'ui/utils/vscode'
+
+import { DEFAULT_MCP_TIMEOUT_SECONDS, McpServer } from '~/shared/mcp'
+
+import DangerButton from '../common/DangerButton'
 import McpResourceRow from './McpResourceRow'
 import McpToolRow from './McpToolRow'
-import DangerButton from '../common/DangerButton'
 
 type McpViewProps = {
     onDone: () => void

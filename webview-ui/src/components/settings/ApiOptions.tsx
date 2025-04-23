@@ -1,6 +1,8 @@
-import { VSCodeDropdown, VSCodeOption, VSCodeCheckbox } from '@vscode/webview-ui-toolkit/react'
+import { VSCodeCheckbox, VSCodeDropdown, VSCodeOption } from '@vscode/webview-ui-toolkit/react'
 import { Fragment, useCallback, useMemo, useState } from 'react'
 import styled from 'styled-components'
+import { useExtensionState } from 'ui/context/ExtensionStateContext'
+
 import {
     anthropicDefaultModelId,
     anthropicModels,
@@ -12,8 +14,8 @@ import {
     ModelInfo,
     openaiDefaultModelId,
     openaiModels,
-} from '../../../../src/shared/api'
-import { useExtensionState } from '../../context/ExtensionStateContext'
+} from '~/shared/api'
+
 import ModelDescriptionMarkdown from './ModelDescriptionMarkdown'
 
 interface ApiOptionsProps {
@@ -55,7 +57,9 @@ const ApiOptions = ({ modelIdErrorMessage, isPopup, mode }: ApiOptionsProps) => 
 
     const handleInputChange = useCallback(
         (field: keyof ApiConfiguration) => (event: any) => {
-            if (!chatSettings) return
+            if (!chatSettings) {
+                return
+            }
 
             const newValue = event.target.value
             const modeSettings = chatSettings[mode]
@@ -100,8 +104,9 @@ const ApiOptions = ({ modelIdErrorMessage, isPopup, mode }: ApiOptionsProps) => 
     )
     // Memoize the normalized configuration
     const { selectedProvider, selectedModelId, selectedModelInfo } = useMemo(() => {
-        if (!chatSettings)
+        if (!chatSettings) {
             return { selectedProvider: 'Loading...', selectedModelId: 'Loading...', selectedModelInfo: {} as ModelInfo }
+        }
         const apiConfiguration = chatSettings[mode]
         return normalizeApiConfiguration(apiConfiguration)
     }, [chatSettings, mode])

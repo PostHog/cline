@@ -1,14 +1,14 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
-import * as vscode from 'vscode'
-import { Logger } from './services/logging/Logger'
-import { createPostHogAPI } from './exports'
 import './utils/path' // necessary to have access to String.prototype.toPosix
-import { DIFF_VIEW_URI_SCHEME } from './integrations/editor/DiffViewProvider'
+
 import assert from 'node:assert'
-import { telemetryService } from './services/telemetry/TelemetryService'
-import { PostHogProvider } from './core/webview/PostHogProvider'
+import { setTimeout as setTimeoutPromise } from 'node:timers/promises'
+
+import * as vscode from 'vscode'
+
+import { CodeAnalyzer } from './analysis/codeAnalyzer'
+import { PostHogApiProvider } from './api/provider'
 import { CompletionProvider } from './autocomplete/CompletionProvider'
 import {
     getStatusBarStatus,
@@ -17,9 +17,15 @@ import {
     setupStatusBar,
     StatusBarStatus,
 } from './autocomplete/statusBar'
-import { PostHogApiProvider } from './api/provider'
+import { PostHogProvider } from './core/webview/PostHogProvider'
+import { createPostHogAPI } from './exports'
+import { DIFF_VIEW_URI_SCHEME } from './integrations/editor/DiffViewProvider'
+import { PathObfuscator } from './integrations/encryption'
+import { CodebaseIndexer } from './integrations/indexing'
+import { Logger } from './services/logging/Logger'
+import { telemetryService } from './services/telemetry/TelemetryService'
 import { codestralDefaultModelId } from './shared/api'
-import { CodeAnalyzer } from './analysis/codeAnalyzer'
+import { ConfigManager } from './shared/conf'
 import { debounce } from './utils/debounce'
 
 /*
@@ -42,9 +48,12 @@ export async function activate(context: vscode.ExtensionContext) {
     Logger.initialize(outputChannel)
     Logger.log('PostHog extension activated')
 
-    const sidebarProvider = new PostHogProvider(context, outputChannel)
-
     vscode.commands.executeCommand('setContext', 'posthog.isDevMode', IS_DEV && IS_DEV === 'true')
+
+    const configManager = new ConfigManager(context)
+    const state = await configManager.init()
+
+    const sidebarProvider = new PostHogProvider(context, outputChannel, configManager)
 
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(PostHogProvider.sideBarId, sidebarProvider, {
@@ -77,7 +86,8 @@ export async function activate(context: vscode.ExtensionContext) {
         Logger.log('Opening PostHog in new tab')
         // (this example uses webviewProvider activation event which is necessary to deserialize cached webview, but since we use retainContextWhenHidden, we don't need to use that event)
         // https://github.com/microsoft/vscode-extension-samples/blob/main/webview-sample/src/extension.ts
-        const tabProvider = new PostHogProvider(context, outputChannel)
+        await configManager.loadState()
+        const tabProvider = new PostHogProvider(context, outputChannel, configManager)
         //const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined
         const lastCol = Math.max(...vscode.window.visibleTextEditors.map((editor) => editor.viewColumn || 0))
 
@@ -110,7 +120,8 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(vscode.commands.registerCommand('posthog.openInNewTab', openPostHogInNewTab))
 
     const openSettingsPanel = async () => {
-        const tabProvider = new PostHogProvider(context, outputChannel)
+        await configManager.loadState()
+        const tabProvider = new PostHogProvider(context, outputChannel, configManager)
         const panel = vscode.window.createWebviewPanel('posthog.settings', 'PostHog Settings', vscode.ViewColumn.One, {
             enableScripts: true,
             retainContextWhenHidden: true,
@@ -144,7 +155,6 @@ export async function activate(context: vscode.ExtensionContext) {
     )
 
     // Tab autocomplete
-    const state = await sidebarProvider.getState()
     const autocompleteEnabled = state.enableTabAutocomplete
 
     // Register inline completion provider
@@ -158,7 +168,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 // 	throw new Error('No API completion provider found')
                 // }
                 // Default to codestral
-                const state = await sidebarProvider.getState()
+                const state = await configManager.loadState()
                 return new PostHogApiProvider(
                     codestralDefaultModelId,
                     state.apiConfiguration.posthogHost,
@@ -430,7 +440,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
                 if (targetStatus !== undefined) {
                     setupStatusBar(targetStatus)
-                    sidebarProvider.updateGlobalState('enableTabAutocomplete', targetStatus === StatusBarStatus.Enabled)
+                    configManager.setGlobalValue('enableTabAutocomplete', targetStatus === StatusBarStatus.Enabled)
                 }
                 quickPick.dispose()
             })
@@ -469,7 +479,27 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     )
 
-    return createPostHogAPI(outputChannel, sidebarProvider)
+    // Codebase indexing
+    const pathObfuscator = new PathObfuscator(configManager)
+    const codebaseIndexer = new CodebaseIndexer(context, configManager, pathObfuscator)
+    context.subscriptions.push(codebaseIndexer)
+
+    if (configManager.checkIfOnboardingCompleted(state)) {
+        codebaseIndexer.init()
+    } else {
+        context.subscriptions.push(
+            configManager.onDidFinishOnboarding(() => {
+                codebaseIndexer.init()
+            })
+        )
+    }
+
+    // Set context for testing
+    if (process.env.NODE_ENV === 'test') {
+        ;(global as any).testExtensionContext = context
+    }
+
+    return createPostHogAPI(outputChannel, sidebarProvider, configManager)
 }
 
 // This method is called when your extension is deactivated

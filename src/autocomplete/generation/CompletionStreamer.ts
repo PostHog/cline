@@ -2,7 +2,6 @@ import { PostHogApiProvider } from '../../api/provider'
 import { StreamTransformPipeline } from '../filtering/streamTransforms/StreamTransformPipeline'
 import { CompletionOptions } from '../types'
 import { AutocompleteHelperVars } from '../util/AutocompleteHelperVars'
-
 import { GeneratorReuseManager } from './GeneratorReuseManager'
 
 export class CompletionStreamer {

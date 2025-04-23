@@ -1,9 +1,10 @@
-import * as vscode from 'vscode'
 import * as childProcess from 'child_process'
 import * as path from 'path'
 import * as readline from 'readline'
-import { fileExistsAtPath } from '../../utils/fs'
-import { PostHogIgnoreController } from '../../core/ignore/PostHogIgnoreController'
+import * as vscode from 'vscode'
+
+import { PostHogIgnoreController } from '~/core/ignore/PostHogIgnoreController'
+import { fileExistsAtPath } from '~/utils/fs'
 
 /*
 This file provides functionality to perform regex searches on files using ripgrep.
