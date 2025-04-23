@@ -20,6 +20,8 @@ import {
 import { PostHogProvider } from './core/webview/PostHogProvider'
 import { createPostHogAPI } from './exports'
 import { DIFF_VIEW_URI_SCHEME } from './integrations/editor/DiffViewProvider'
+import { PathObfuscator } from './integrations/encryption'
+import { CodebaseIndexer } from './integrations/indexing'
 import { Logger } from './services/logging/Logger'
 import { telemetryService } from './services/telemetry/TelemetryService'
 import { codestralDefaultModelId } from './shared/api'
@@ -46,12 +48,12 @@ export async function activate(context: vscode.ExtensionContext) {
     Logger.initialize(outputChannel)
     Logger.log('PostHog extension activated')
 
+    vscode.commands.executeCommand('setContext', 'posthog.isDevMode', IS_DEV && IS_DEV === 'true')
+
     const configManager = new ConfigManager(context)
     const state = await configManager.init()
 
     const sidebarProvider = new PostHogProvider(context, outputChannel, configManager)
-
-    vscode.commands.executeCommand('setContext', 'posthog.isDevMode', IS_DEV && IS_DEV === 'true')
 
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(PostHogProvider.sideBarId, sidebarProvider, {
@@ -476,6 +478,26 @@ export async function activate(context: vscode.ExtensionContext) {
             })
         })
     )
+
+    // Codebase indexing
+    const pathObfuscator = new PathObfuscator(configManager)
+    const codebaseIndexer = new CodebaseIndexer(context, configManager, pathObfuscator)
+    context.subscriptions.push(codebaseIndexer)
+
+    if (configManager.checkIfOnboardingCompleted(state)) {
+        codebaseIndexer.init()
+    } else {
+        context.subscriptions.push(
+            configManager.onDidFinishOnboarding(() => {
+                codebaseIndexer.init()
+            })
+        )
+    }
+
+    // Set context for testing
+    if (process.env.NODE_ENV === 'test') {
+        ;(global as any).testExtensionContext = context
+    }
 
     return createPostHogAPI(outputChannel, sidebarProvider, configManager)
 }

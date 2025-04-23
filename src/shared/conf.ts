@@ -1,4 +1,4 @@
-import { ExtensionContext } from 'vscode'
+import { Event, EventEmitter, ExtensionContext } from 'vscode'
 
 import { allModels, anthropicDefaultModelId, ApiConfiguration } from './api'
 import { ApiProvider, CompletionApiProvider } from './api'
@@ -9,7 +9,7 @@ import { HistoryItem } from './HistoryItem'
 import { TelemetrySetting } from './TelemetrySetting'
 import { UserInfo } from './UserInfo'
 
-type SecretKey = 'posthogApiKey'
+type SecretKey = 'posthogApiKey' | 'encryptionKey'
 
 type GlobalStateKey =
     | 'apiProvider'
@@ -39,8 +39,28 @@ export interface ExtensionStorageState {
     enableTabAutocomplete?: boolean
 }
 
+export async function clearStorage(context: ExtensionContext, secrets: string[] = []) {
+    const globalStatePromises = context.globalState.keys().map((key) => context.globalState.update(key, undefined))
+    const workspaceStatePromises = context.workspaceState
+        .keys()
+        .map((key) => context.workspaceState.update(key, undefined))
+
+    const defaultKeys: SecretKey[] = ['posthogApiKey', 'encryptionKey']
+    const secretKeys = [...defaultKeys, ...secrets]
+    const secretPromises = secretKeys.map((key) => context.secrets.delete(key))
+
+    await Promise.all([...globalStatePromises, ...workspaceStatePromises, ...secretPromises])
+}
+
 export class ConfigManager {
     private _cachedState: ExtensionStorageState | undefined
+    private _onDidFinishOnboarding = new EventEmitter<ExtensionStorageState>()
+
+    /**
+     * Event that is fired when onboarding is completed:
+     * `posthogProjectId` and `posthogApiKey` are set.
+     */
+    public readonly onDidFinishOnboarding: Event<ExtensionStorageState> = this._onDidFinishOnboarding.event
 
     constructor(private readonly context: ExtensionContext) {}
 
@@ -57,6 +77,18 @@ export class ConfigManager {
             throw new Error('ExtensionStorage not initialized')
         }
         return this._cachedState
+    }
+
+    get apiKey() {
+        return this.currentState.apiConfiguration.posthogApiKey
+    }
+
+    get host() {
+        return this.currentState.apiConfiguration.posthogHost
+    }
+
+    get projectId() {
+        return this.currentState.apiConfiguration.posthogProjectId
     }
 
     getGlobalValue<T>(key: GlobalStateKey): T | undefined {
@@ -121,24 +153,31 @@ export class ConfigManager {
             // Either new user or legacy user that doesn't have the apiProvider stored in state
             apiProvider = 'anthropic'
         }
+
         let apiModelId: keyof typeof allModels
         if (storedApiModelId) {
             apiModelId = storedApiModelId as keyof typeof allModels
         } else {
             apiModelId = anthropicDefaultModelId
         }
+
         let completionApiProvider: CompletionApiProvider
         if (storedCompletionApiProvider) {
             completionApiProvider = storedCompletionApiProvider
         } else {
             completionApiProvider = 'codestral'
         }
+
         let posthogHost: string
         if (storedPostHogHost) {
             posthogHost = storedPostHogHost
         } else {
             posthogHost = 'https://us.posthog.com'
         }
+        if (process.env.IS_DEV) {
+            posthogHost = 'http://localhost:8010'
+        }
+
         let chatSettings: ChatSettings
         if (storedChatSettings) {
             chatSettings = storedChatSettings
@@ -194,6 +233,11 @@ export class ConfigManager {
         }
 
         this._cachedState = state
+
+        if (this.checkIfOnboardingCompleted(state)) {
+            this._onDidFinishOnboarding.fire(state)
+        }
+
         return state
     }
 
@@ -218,13 +262,13 @@ export class ConfigManager {
     }
 
     async clearAllData() {
-        const globalStatePromises = this.context.globalState
-            .keys()
-            .map((key) => this.context.globalState.update(key, undefined))
+        return clearStorage(this.context)
+    }
 
-        const secretKeys: SecretKey[] = ['posthogApiKey']
-        const secretPromises = secretKeys.map((key) => this.deleteSecretValue(key))
-
-        await Promise.all([...globalStatePromises, ...secretPromises])
+    checkIfOnboardingCompleted(state: ExtensionStorageState): boolean {
+        return (
+            typeof state.apiConfiguration.posthogApiKey === 'string' &&
+            typeof state.apiConfiguration.posthogProjectId === 'string'
+        )
     }
 }

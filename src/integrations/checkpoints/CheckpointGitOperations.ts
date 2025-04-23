@@ -4,6 +4,7 @@ import * as path from 'path'
 import simpleGit, { SimpleGit } from 'simple-git'
 
 import { telemetryService } from '~/services/telemetry/TelemetryService'
+import { GIT_DISABLED_SUFFIX } from '~/utils/exclusions'
 import { fileExistsAtPath } from '~/utils/fs'
 
 import { getLfsPatterns, writeExcludesFile } from './CheckpointExclusions'
@@ -214,5 +215,3 @@ export class GitOperations {
         }
     }
 }
-
-export const GIT_DISABLED_SUFFIX = '_disabled'
